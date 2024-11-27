@@ -107,7 +107,7 @@ std::shared_ptr<IActionTarget> getActionTarget(ActionType type, uint16_t uid) {
 
 // 解析json
 void parseJson(const std::string& json_str) {
-    printf("json: %s\n", json_str.c_str());
+    // printf("json: %s\n", json_str.c_str());
     // clean all
     BoardManager::getInstance().clear();
     LampManager::getInstance().clear();
@@ -289,9 +289,9 @@ void parseJson(const std::string& json_str) {
     // ****************** 动作组 ******************
     if (json_data.HasMember("动作组列表") && json_data["动作组列表"].IsArray()) {
         const rapidjson::Value& action_group_list = json_data["动作组列表"];
-        printf("size: %d\n", action_group_list.Size());
+        // printf("size: %d\n", action_group_list.Size());
         for (rapidjson::SizeType i = 0; i < action_group_list.Size(); ++i) {
-            printf("hell\n");
+            // printf("hell\n");
             const rapidjson::Value& item = action_group_list[i];
             auto action_group = std::make_shared<ActionGroup>();
             action_group->uid = item["uid"].GetUint();
@@ -300,9 +300,9 @@ void parseJson(const std::string& json_str) {
             if (item.HasMember("actionList") && item["actionList"].IsArray()) {
                 action_group->actions_json.SetArray();
                 rapidjson::Document::AllocatorType& allocator = json_data.GetAllocator();
-                printf("hello\n");
+                // printf("hello\n");
                 action_group->actions_json.CopyFrom(item["actionList"], allocator);
-                printf("aaaa\n");
+                // printf("aaaa\n");
             } else {
                 ESP_LOGE(TAG, "动作组[%s] 没有有效的 actionList", item["name"].GetString());
                 continue;
@@ -314,12 +314,12 @@ void parseJson(const std::string& json_str) {
 
     ESP_LOGI(TAG, "解析 动作组 配置 (2/2)");
     // 第二遍再解析动作列表, 因为有的动作目标可能是动作组
-    printf("wtf %d\n", ActionGroupManager::getInstance().getAllItems().size());
+    // printf("wtf %d\n", ActionGroupManager::getInstance().getAllItems().size());
     for (auto& [_, action_group] : ActionGroupManager::getInstance().getAllItems()) {
         const rapidjson::Value& action_list = action_group->actions_json;
 
         if (action_list.IsArray()) {
-            printf("action_list.size: %d\n", action_list.Size());
+            // printf("action_list.size: %d\n", action_list.Size());
             for (rapidjson::SizeType i = 0; i < action_list.Size(); ++i) {
                 const rapidjson::Value& action_item = action_list[i];
                 Action action;
@@ -338,7 +338,7 @@ void parseJson(const std::string& json_str) {
                 if (action_item.HasMember("parameter") && action_item["parameter"].IsInt()) {
                     action.parameter = action_item["parameter"].GetInt();
                 }
-                printf("动作组[%s]添加了动作[%d]\n", action_group->name.c_str(), (int)action.type);
+                // printf("动作组[%s]添加了动作[%d]\n", action_group->name.c_str(), (int)action.type);
                 // 动作组不见了, 查看以上打印
                 action_group->action_list.push_back(std::move(action));
             }

@@ -28,12 +28,12 @@ void uart_init_rs485() {
             uart_write_bytes(RS485_UART_PORT, reinterpret_cast<const char*>(alive_code.data()), alive_code.size());
             vTaskDelay(200 / portTICK_PERIOD_MS);
             static int count = 0;
-            count++;
-            if (count > 50) {
-                UBaseType_t remaining_stack = uxTaskGetStackHighWaterMark(NULL);
-                ESP_LOGI("sent", "Remaining stack size: %u", remaining_stack);
-                count = 0;
-            }
+            // count++;
+            // if (count > 50) {
+            //     UBaseType_t remaining_stack = uxTaskGetStackHighWaterMark(NULL);
+            //     ESP_LOGI("sent", "Remaining stack size: %u", remaining_stack);
+            //     count = 0;
+            // }
         }
     }, "495ALIVE task", 4096, NULL, 3, NULL);
 
@@ -55,12 +55,12 @@ void uart_init_rs485() {
             }
 
             static int count = 0;
-            count++;
-            if (count > 50) {
-                UBaseType_t remaining_stack = uxTaskGetStackHighWaterMark(NULL);
-                ESP_LOGI("received", "Remaining stack size: %u", remaining_stack);
-                count = 0;
-            }
+            // count++;
+            // if (count > 50) {
+            //     UBaseType_t remaining_stack = uxTaskGetStackHighWaterMark(NULL);
+            //     ESP_LOGI("received", "Remaining stack size: %u", remaining_stack);
+            //     count = 0;
+            // }
 
         }
 
@@ -129,31 +129,54 @@ void handle_rs485_data(uint8_t* data, int length) {
 
     // ******************** 判断功能码 ********************
 
-    // 开关上报码
+    // 开关上报
     if (data[1] == CODE_SWITCH_REPORT) {
         uint8_t panel_id = data[3];
         uint8_t target_buttons = data[4];
         uint8_t old_bl_state = data[5];
         std::shared_ptr<Panel> panel = PanelManager::getInstance().getItem(panel_id);
-
-        // 更新上报的所有按钮背光状态
-        if (panel) {
-            panel->set_button_bl_states(old_bl_state);
-        } else {
+        if (panel == nullptr) {
             ESP_LOGE(TAG, "id为 %d 的面板不存在", panel_id);
             return;
         }
 
-        // 如果是0xFF, 说明不操作任何一个按钮, 只是普通地报告整个面板的状态, 所以上面更新完就可以返回了
-        if (target_buttons == 0xFF) return;
+        // 更新指示灯们的状态
+        panel->set_button_bl_states(old_bl_state);
 
-        // 执行目标按钮的操作
-        panel->buttons[find_zero_position(target_buttons) - 1].press();
-        
-        // 得到新的所有按钮的背光状态
-        uint8_t new_bl_states = panel->get_button_bl_states() ^ ~target_buttons;
+        // 如果是0xFF, 说明哪个按钮都没按下, 所以重置所有按钮的标记, 这通常是released时会收到的
+        if (target_buttons == 0xFF) {
+            panel->set_button_operation_flags(0x00);
+            return;
+        }
 
-        // 构造开关写入码
+        // 获取当前的按钮操作标记
+        uint8_t operation_flags = panel->get_button_operation_flags();
+
+        // 遍历每个按钮, 处理按下与释放
+        for (int i = 0; i < 8; ++i) {
+            uint8_t mask = 1 << i;
+            bool is_pressed = !(target_buttons & mask);     // 当前是否按下
+            bool is_operating = operation_flags & mask;     // 是否标记为"正在操作"
+
+            if (is_pressed && !is_operating) {
+                // 按钮按下, 且未被标记为"正在操作"
+                panel->buttons[i].press();
+                panel->toggle_button_bl_state(i);           // 反转指示灯状态
+                operation_flags |= mask;                    // 设置"正在操作"标记
+            } else if (!is_pressed && is_operating) {
+                // 按钮释放，且之前被标记为"正在操作"
+                operation_flags &= ~mask;    // 清除标记
+            }
+            // 如果按钮状态未变化, 或已经标记为"正在操作", 则不进行任何操作
+        }
+
+        // 更新按钮操作标记
+        panel->set_button_operation_flags(operation_flags);
+
+        // 得到新的指示灯状态
+        uint8_t new_bl_states = panel->get_button_bl_states();
+
+        // 构造开关写入码, 设置指示灯
         generate_response(CODE_SWITCH_WRITE, 0x00, panel_id, target_buttons, new_bl_states);
         
     }
@@ -184,7 +207,7 @@ void print_binary(uint8_t value) {
 }
 // 获得uint8_t从右开始数的唯一0的位置
 uint8_t find_zero_position(uint8_t input) {
-    // 按位取反，让唯一的 0 变成 1
+    // 按位取反, 让唯一的 0 变成 1
     uint8_t inverted = ~input;
 
     // 使用 __builtin_ffs 查找第一个 1 的位置

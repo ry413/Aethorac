@@ -33,7 +33,7 @@ public:
             current_index = (current_index + 1) % action_group_list.size();
         }
     };
-    
+
 private:
     uint8_t current_index = 0;      // 此时按下会执行第几个动作
     
@@ -45,12 +45,24 @@ public:
     std::string name;
     std::unordered_map<uint8_t, PanelButton> buttons;
 
-    // 驱动层
-    void set_button_bl_states(uint8_t state) { button_backlight_states = state; }
-    uint8_t get_button_bl_states(void) const { return button_backlight_states; }
+    // ******************* 驱动层 *******************
+    void set_button_bl_states(uint8_t state) { button_bl_states = state; }
+    uint8_t get_button_bl_states(void) const { return button_bl_states; }
+
+    void set_button_operation_flags(uint8_t flags) { button_operation_flags = flags; }
+    uint8_t get_button_operation_flags(void) const { return button_operation_flags; }
+
+    // 翻转某一位的指示灯
+    void toggle_button_bl_state(int index) {
+        uint8_t state = get_button_bl_states();
+        state ^= (1 << index);
+        set_button_bl_states(state);
+    }
 private:
-    // 驱动层
-    uint8_t button_backlight_states;    // 所有按钮的背光状态, 1亮0灭
+    // ******************* 驱动层 *******************
+    uint8_t button_bl_states = 0x00;        // 所有按钮的背光状态, 1亮0灭
+    uint8_t button_operation_flags = 0x00;  // 按钮们的"正在操作"标记
+
 };
 
 
