@@ -21,6 +21,8 @@ public:
 
     void execute() {
         if (target) {
+            printf("执行中\n");
+
             target->executeAction(operation, parameter);
         } else {
             ESP_LOGE(TAG, "target不存在");
@@ -63,6 +65,7 @@ public:
         printf("开始执行动作组[%s]\n", name.c_str());
         xTaskCreate([] (void *parameter) {
             auto *group = static_cast<ActionGroup *>(parameter);
+            printf("动作组有%d个动作", group->action_list.size());
             for (auto& action : group->action_list) {
                 action.execute();
             }

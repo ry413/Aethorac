@@ -8,8 +8,6 @@
 
 #include "air_conditioner.h"
 
-#define TAG "air_conditioner"
-
 
 // ACGlobalConfig ac_global_config;
 

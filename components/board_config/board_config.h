@@ -34,8 +34,8 @@ public:
             return;
         }
 
-        build_frame(cmd_type, host_board_id, channel, param1, 0x00, &frame);
-        send_frame(&frame);
+        // build_frame(cmd_type, host_board_id, channel, param1, 0x00, &frame);
+        // send_frame(&frame);
     };
 };
 

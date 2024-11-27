@@ -5,6 +5,7 @@
 #include "nvs_flash.h"
 #include "esp_log.h"
 #include "esp_interface.h"
+#include "../my_mqtt/my_mqtt.h"
 
 #define WIFI_SSID "xz526"
 #define WIFI_PASS "xz526888"
@@ -52,5 +53,8 @@ void wifi_init_sta() {
     esp_wifi_start();
 
     xEventGroupWaitBits(wifi_event_group, WIFI_CONNECTED_BIT, false, true, portMAX_DELAY);
+
     ESP_LOGI("wifi", "Connected to WiFi");
+
+    // mqtt_app_start();
 }

@@ -7,7 +7,9 @@
             "includePath": [
                 "${config:idf.espIdfPath}/components/**",
                 "${config:idf.espIdfPathWin}/components/**",
-                "${workspaceFolder}/**"
+                "${workspaceFolder}/**",
+                "/Users/ry79/esp/v5.1.3/esp-idf/components/lwip/lwip/src/include/lwip/apps",
+                "/Users/ry79/esp/v5.1.3/esp-idf/components/lwip/lwip/src/include/lwip/apps"
             ],
             "browse": {
                 "path": [

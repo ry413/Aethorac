@@ -5,6 +5,7 @@ extern "C" {
 #include "esp_err.h"
 #include "esp_spiffs.h"
 #include "stdio.h"
+#include "esp_ota_ops.h"
 
 // #include "../components/ethernet/ethernet.h"
 }
@@ -29,7 +30,7 @@ extern "C" {
 
 #define PORT 8080
 #define TAG "main.cpp"
-#define FILE_PATH "/spiffs/data.json"
+#define FILE_PATH "/spiffs/rcu_config.json"
 
 void init_spiffs() {
     esp_vfs_spiffs_conf_t conf = {
@@ -49,6 +50,35 @@ void init_spiffs() {
             ESP_LOGE(TAG, "Failed to initialize SPIFFS: %s", esp_err_to_name(ret));
         }
     }
+}
+
+
+std::string read_json_to_string(const std::string& filepath) {
+    FILE* file = fopen(filepath.c_str(), "r");
+    if (!file) {
+        printf("Failed to open file: %s\n", filepath.c_str());
+        return "";
+    }
+
+    fseek(file, 0, SEEK_END);
+    long file_size = ftell(file);
+    rewind(file);
+
+    if (file_size <= 0) {
+        fclose(file);
+        return "";
+    }
+
+    std::string content(file_size, '\0');
+    size_t read_size = fread(&content[0], 1, file_size, file);
+    fclose(file);
+
+    if (read_size != static_cast<size_t>(file_size)) {
+        printf("Failed to read the entire file: %s\n", filepath.c_str());
+        return "";
+    }
+
+    return content;
 }
 
 // 根据type和uid返回对应的实例
@@ -77,6 +107,7 @@ std::shared_ptr<IActionTarget> getActionTarget(ActionType type, uint16_t uid) {
 
 // 解析json
 void parseJson(const std::string& json_str) {
+    printf("json: %s\n", json_str.c_str());
     // clean all
     BoardManager::getInstance().clear();
     LampManager::getInstance().clear();
@@ -254,11 +285,13 @@ void parseJson(const std::string& json_str) {
         }
     }
 
-    ESP_LOGI(TAG, "解析 动作组 配置");
+    ESP_LOGI(TAG, "解析 动作组 配置 (1/2)");
     // ****************** 动作组 ******************
     if (json_data.HasMember("动作组列表") && json_data["动作组列表"].IsArray()) {
         const rapidjson::Value& action_group_list = json_data["动作组列表"];
+        printf("size: %d\n", action_group_list.Size());
         for (rapidjson::SizeType i = 0; i < action_group_list.Size(); ++i) {
+            printf("hell\n");
             const rapidjson::Value& item = action_group_list[i];
             auto action_group = std::make_shared<ActionGroup>();
             action_group->uid = item["uid"].GetUint();
@@ -266,7 +299,10 @@ void parseJson(const std::string& json_str) {
 
             if (item.HasMember("actionList") && item["actionList"].IsArray()) {
                 action_group->actions_json.SetArray();
-                rapidjson::Document::AllocatorType& allocator = action_group->actions_json.GetAllocator();
+                rapidjson::Document::AllocatorType& allocator = json_data.GetAllocator();
+                printf("hello\n");
+                action_group->actions_json.CopyFrom(item["actionList"], allocator);
+                printf("aaaa\n");
             } else {
                 ESP_LOGE(TAG, "动作组[%s] 没有有效的 actionList", item["name"].GetString());
                 continue;
@@ -276,11 +312,14 @@ void parseJson(const std::string& json_str) {
         }
     }
 
+    ESP_LOGI(TAG, "解析 动作组 配置 (2/2)");
     // 第二遍再解析动作列表, 因为有的动作目标可能是动作组
+    printf("wtf %d\n", ActionGroupManager::getInstance().getAllItems().size());
     for (auto& [_, action_group] : ActionGroupManager::getInstance().getAllItems()) {
         const rapidjson::Value& action_list = action_group->actions_json;
 
         if (action_list.IsArray()) {
+            printf("action_list.size: %d\n", action_list.Size());
             for (rapidjson::SizeType i = 0; i < action_list.Size(); ++i) {
                 const rapidjson::Value& action_item = action_list[i];
                 Action action;
@@ -299,7 +338,8 @@ void parseJson(const std::string& json_str) {
                 if (action_item.HasMember("parameter") && action_item["parameter"].IsInt()) {
                     action.parameter = action_item["parameter"].GetInt();
                 }
-
+                printf("动作组[%s]添加了动作[%d]\n", action_group->name.c_str(), (int)action.type);
+                // 动作组不见了, 查看以上打印
                 action_group->action_list.push_back(std::move(action));
             }
         } else {
@@ -479,9 +519,15 @@ extern "C" void app_main(void)
     printf("Hello world!\n");
     init_spiffs();
     wifi_init_sta();
-    uart_init_stm32();
+    // uart_init_stm32();
     uart_init_rs485();
     // ethernet_init();
     xTaskCreate(tcp_server_task, "tcp_server_task", 8192, NULL, 5, NULL);
 
+    xTaskCreate([] (void *pvParameter) {
+        parseJson(read_json_to_string(FILE_PATH));
+        vTaskDelete(NULL);
+    }, "parseJson", 8192, NULL, 5, NULL);
+
+    esp_err_t err = esp_ota_mark_app_valid_cancel_rollback();
 }

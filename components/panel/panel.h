@@ -24,10 +24,16 @@ public:
     bool polit_lamp_state = false;      // 指示灯状态
 
     // 按下按钮
-    void press();
+    void press() {
+        // 还真要检查, 防止动作组列表是空的
+        if (current_index < action_group_list.size()) {
+            printf("触发第 %d 个动作组\n", current_index + 1);
+            action_group_list[current_index]->execute();
 
-    void change_polit_lamp(bool state);
-
+            current_index = (current_index + 1) % action_group_list.size();
+        }
+    };
+    
 private:
     uint8_t current_index = 0;      // 此时按下会执行第几个动作
     
@@ -39,11 +45,12 @@ public:
     std::string name;
     std::unordered_map<uint8_t, PanelButton> buttons;
 
-    void change_all_button_polit(bool state) {
-        for (auto& button : buttons) {
-            button.second.change_polit_lamp(state);
-        }
-    }
+    // 驱动层
+    void set_button_bl_states(uint8_t state) { button_backlight_states = state; }
+    uint8_t get_button_bl_states(void) const { return button_backlight_states; }
+private:
+    // 驱动层
+    uint8_t button_backlight_states;    // 所有按钮的背光状态, 1亮0灭
 };
 
 
