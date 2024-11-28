@@ -1,7 +1,9 @@
 #include "rs485.h"
 #include "driver/uart.h"
 #include <string>
-#include "../panel/panel.h"
+#include "panel.h"
+
+#define TAG "RS485"
 
 void uart_init_rs485() {
     uart_config_t uart_config = {
@@ -160,8 +162,12 @@ void handle_rs485_data(uint8_t* data, int length) {
 
             if (is_pressed && !is_operating) {
                 // 按钮按下, 且未被标记为"正在操作"
-                panel->buttons[i].press();
-                // panel->toggle_button_bl_state(i);           // 反转指示灯状态
+                if (panel->buttons.find(i) == panel->buttons.end() || !panel->buttons[i]) {
+                    ESP_LOGE(TAG, "Button %d not found or is null in panel %d", i, panel->id);
+                    return;
+                }
+        ESP_LOGI(TAG, "Pressing Button ID: %d", i);
+                panel->buttons[i]->press();
                 operation_flags |= mask;                    // 设置"正在操作"标记
             } else if (!is_pressed && is_operating) {
                 // 按钮释放，且之前被标记为"正在操作"
@@ -172,12 +178,9 @@ void handle_rs485_data(uint8_t* data, int length) {
 
         // 更新按钮操作标记
         panel->set_button_operation_flags(operation_flags);
-
-        // 得到新的指示灯状态
-        uint8_t new_bl_states = panel->get_button_bl_states();
-
-        // 构造开关写入码, 设置指示灯               第五位target_buttons, 这里原封不动传回, 但面板实际上是不关心的
-        generate_response(CODE_SWITCH_WRITE, 0x00, panel_id, target_buttons, new_bl_states);
+        
+        // 发送指令码更新面板状态
+        panel->publish_bl_state();
         
     }
     // else if

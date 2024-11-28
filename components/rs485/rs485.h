@@ -1,9 +1,10 @@
 #ifndef RS485_CONFIG_H
 #define RS485_CONFIG_H
 
+#include <string>
+#include <vector>
 #include "../config_structs/config_structs.h"
-
-#define TAG "RS485"
+#include "../manager_base/manager_base.h"
 
 #define RS485_UART_PORT   1
 #define RS485_TX_PIN      6
@@ -37,7 +38,8 @@ public:
     std::string name;
     std::vector<uint8_t> code;
 
-    void executeAction(const std::string& operation, const std::variant<int, nullptr_t>& parameter) override {
+    void executeAction(const std::string& operation, const std::variant<int, nullptr_t>& parameter,
+                       PanelButton* source_button) override {
         if (operation == "发送") {
             sendRS485CMD(code);
             printf("已发送指令码[%s]\n", name.c_str());

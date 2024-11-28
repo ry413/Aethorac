@@ -4,28 +4,28 @@
 #include <map>
 #include <memory>
 #include <variant>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/timers.h"
+#include "esp_log.h"
+
 #include "../config_structs/config_structs.h"
+#include "../manager_base/manager_base.h"
 #include "../lamp/lamp.h"
 #include "../air_conditioner/air_conditioner.h"
 #include "../rs485/rs485.h"
 #include "../rapidjson/document.h"
 
-#define TAG "ACTION_GROUP"
-
-class Action{
+class Action {
 public:
     ActionType type;
-    std::shared_ptr<IActionTarget> target;
+    std::weak_ptr<IActionTarget> target;
     std::string operation;
-    std::variant<int, nullptr_t> parameter;        // 这个暂时只有int, 调光等级和延时秒数
+    std::variant<int, nullptr_t> parameter;         // 这个暂时只有int, 调光等级和延时秒数
+    PanelButton* source_button = nullptr;           // 触发动作的来源按, 传裸指针得了
 
-    void execute() {
-        if (target) {
-            target->executeAction(operation, parameter);
-        } else {
-            ESP_LOGE(TAG, "target不存在");
-        }
-    }
+    // 执行这个Action
+    void execute();
 };
 
 class ActionGroup : public IActionTarget {
@@ -37,40 +37,15 @@ public:
     TaskHandle_t task_handle = nullptr;
 
     // 本动作组被作为目标
-    void executeAction(const std::string& operation, const std::variant<int, nullptr_t>& parameter) override {
-        if (operation == "调用") {
-            // 被'调用'则相当于主动调用本动作组
-            execute();
-        } else if (operation == "销毁") {
-            // 被'销毁'则删除本动作组可能存在的任务
-            if (task_handle != nullptr) {
-                vTaskDelete(task_handle);
-                task_handle = nullptr;
-                printf("已销毁动作组任务[%s]\n", name.c_str());
-            } else {
-                ESP_LOGW(TAG, "动作组[%s]任务不存在, 无法销毁", name.c_str());
-            }
-        }
-    }
+    void executeAction(const std::string& operation, 
+                       const std::variant<int, nullptr_t>& parameter,
+                       PanelButton* source_button) override;
 
-    // 动作组主动触发时调用
-    void execute() {
-        if (task_handle != nullptr) {
-            ESP_LOGE(TAG, "动作组[%s] 正在执行中", name.c_str());
-            return;
-        }
-        // 异步依次调用所有动作
-        printf("开始执行动作组[%s]\n", name.c_str());
-        xTaskCreate([] (void *parameter) {
-            auto *group = static_cast<ActionGroup *>(parameter);
-            printf("动作组有%d个动作", group->action_list.size());
-            for (auto& action : group->action_list) {
-                action.execute();
-            }
-            group->task_handle = nullptr;
-            vTaskDelete(NULL);
-        }, "ActionGroupTask", 4096, this, 1, &task_handle);
-    }
+    // 动作组主动触发时调用, 比如面板按钮什么的
+    void execute(PanelButton* source_button = {});
+
+private:
+    PanelButton* source_button = nullptr;   // 触发动作组的按钮来源
 
 };
 

@@ -35,7 +35,7 @@ extern "C" {
 void init_spiffs() {
     esp_vfs_spiffs_conf_t conf = {
         .base_path = "/spiffs",
-        .partition_label = NULL,
+        .partition_label = nullptr,
         .max_files = 5,
         .format_if_mount_failed = true
     };
@@ -140,7 +140,7 @@ void parseJson(const std::string& json_str) {
             auto board = std::make_shared<BoardConfig>();
             board->id = item["id"].GetUint();
 
-            ESP_LOGI(TAG, "解析 板 %d 输出列表...", board->id);
+            ESP_LOGI(TAG, "解析 板 %d 输出列表", board->id);
             if (item.HasMember("outputs") && item["outputs"].IsArray()) {
                 const rapidjson::Value& outputs = item["outputs"];
                 for (rapidjson::SizeType j = 0; j < outputs.Size(); ++j) {
@@ -154,7 +154,7 @@ void parseJson(const std::string& json_str) {
                 }
             }
 
-            ESP_LOGI(TAG, "解析 板 %d 输入列表...", board->id);
+            ESP_LOGI(TAG, "解析 板 %d 输入列表", board->id);
             if (item.HasMember("inputs") && item["inputs"].IsArray()) {
                 const rapidjson::Value& inputs = item["inputs"];
                 for (rapidjson::SizeType j = 0; j < inputs.Size(); ++j) {
@@ -296,9 +296,7 @@ void parseJson(const std::string& json_str) {
     // ****************** 动作组 ******************
     if (json_data.HasMember("动作组列表") && json_data["动作组列表"].IsArray()) {
         const rapidjson::Value& action_group_list = json_data["动作组列表"];
-        // printf("size: %d\n", action_group_list.Size());
         for (rapidjson::SizeType i = 0; i < action_group_list.Size(); ++i) {
-            // printf("hell\n");
             const rapidjson::Value& item = action_group_list[i];
             auto action_group = std::make_shared<ActionGroup>();
             action_group->uid = item["uid"].GetUint();
@@ -307,9 +305,7 @@ void parseJson(const std::string& json_str) {
             if (item.HasMember("actionList") && item["actionList"].IsArray()) {
                 action_group->actions_json.SetArray();
                 rapidjson::Document::AllocatorType& allocator = json_data.GetAllocator();
-                // printf("hello\n");
                 action_group->actions_json.CopyFrom(item["actionList"], allocator);
-                // printf("aaaa\n");
             } else {
                 ESP_LOGE(TAG, "动作组[%s] 没有有效的 actionList", item["name"].GetString());
                 continue;
@@ -321,12 +317,10 @@ void parseJson(const std::string& json_str) {
 
     ESP_LOGI(TAG, "解析 动作组 配置 (2/2)");
     // 第二遍再解析动作列表, 因为有的动作目标可能是动作组
-    // printf("wtf %d\n", ActionGroupManager::getInstance().getAllItems().size());
     for (auto& [_, action_group] : ActionGroupManager::getInstance().getAllItems()) {
         const rapidjson::Value& action_list = action_group->actions_json;
 
         if (action_list.IsArray()) {
-            // printf("action_list.size: %d\n", action_list.Size());
             for (rapidjson::SizeType i = 0; i < action_list.Size(); ++i) {
                 const rapidjson::Value& action_item = action_list[i];
                 Action action;
@@ -345,8 +339,6 @@ void parseJson(const std::string& json_str) {
                 if (action_item.HasMember("parameter") && action_item["parameter"].IsInt()) {
                     action.parameter = action_item["parameter"].GetInt();
                 }
-                // printf("动作组[%s]添加了动作[%d]\n", action_group->name.c_str(), (int)action.type);
-                // 动作组不见了, 查看以上打印
                 action_group->action_list.push_back(std::move(action));
             }
         } else {
@@ -371,15 +363,15 @@ void parseJson(const std::string& json_str) {
                 const rapidjson::Value& buttons = item["buttons"];
                 for (rapidjson::SizeType j = 0; j < buttons.Size(); ++j) {
                     const rapidjson::Value& button_item = buttons[j];
-                    PanelButton button;
-                    button.id = button_item["id"].GetUint();
-                    button.host_panel = panel;
+                    auto button = std::make_shared<PanelButton>();
+                    button->id = button_item["id"].GetUint();
+                    button->host_panel = panel;
 
                     if (button_item.HasMember("actionGroupUids") && button_item["actionGroupUids"].IsArray()) {
                         const rapidjson::Value& action_group_uids = button_item["actionGroupUids"];
                         for (rapidjson::SizeType k = 0; k < action_group_uids.Size(); ++k) {
                             uint16_t action_group_uid = action_group_uids[k].GetUint();
-                            button.action_group_list.push_back(
+                            button->action_group_list.push_back(
                                 ActionGroupManager::getInstance().getItem(action_group_uid)
                             );
                         }
@@ -388,7 +380,7 @@ void parseJson(const std::string& json_str) {
                     if (button_item.HasMember("pressedPolitActions") && button_item["pressedPolitActions"].IsArray()) {
                         const rapidjson::Value& pressed_polit_actions = button_item["pressedPolitActions"];
                         for (rapidjson::SizeType k = 0; k < pressed_polit_actions.Size(); ++k) {
-                            button.pressed_polit_actions.push_back(
+                            button->pressed_polit_actions.push_back(
                                 static_cast<ButtonPolitAction>(pressed_polit_actions[k].GetInt())
                             );
                         }
@@ -397,13 +389,13 @@ void parseJson(const std::string& json_str) {
                     if (button_item.HasMember("pressedOtherPolitActions") && button_item["pressedOtherPolitActions"].IsArray()) {
                         const rapidjson::Value& pressed_other_polit_actions = button_item["pressedOtherPolitActions"];
                         for (rapidjson::SizeType k = 0; k < pressed_other_polit_actions.Size(); ++k) {
-                            button.pressed_other_polit_actions.push_back(
+                            button->pressed_other_polit_actions.push_back(
                                 static_cast<ButtonOtherPolitAction>(pressed_other_polit_actions[k].GetInt())
                             );
                         }
                     }
 
-                    panel->buttons[button.id] = button;
+                    panel->buttons[button->id] = button;
                 }
             }
             PanelManager::getInstance().addItem(panel->id, panel);
@@ -417,7 +409,7 @@ void tcp_server_task(void *pvParameters) {
     int listen_sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
     if (listen_sock < 0) {
         ESP_LOGE(TAG, "Unable to create socket: errno %d", errno);
-        vTaskDelete(NULL);
+        vTaskDelete(nullptr);
     }
 
     struct sockaddr_in server_addr = {
@@ -429,13 +421,13 @@ void tcp_server_task(void *pvParameters) {
     if (bind(listen_sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) != 0) {
         ESP_LOGE(TAG, "Socket unable to bind: errno %d", errno);
         close(listen_sock);
-        vTaskDelete(NULL);
+        vTaskDelete(nullptr);
     }
 
     if (listen(listen_sock, 1) != 0) {
         ESP_LOGE(TAG, "Socket unable to listen: errno %d", errno);
         close(listen_sock);
-        vTaskDelete(NULL);
+        vTaskDelete(nullptr);
     }
 
     ESP_LOGI(TAG, "Socket listening on port %d", PORT);
@@ -498,7 +490,6 @@ void tcp_server_task(void *pvParameters) {
                     ESP_LOGE(TAG, "Failed to write to file");
                 } else {
                     ESP_LOGI(TAG, "Data saved to file successfully");
-                    // printf("接收到: %s\n", received_data.c_str());
                     // 写入文件后直接开始解析并应用
                     parseJson(received_data);
                 }
@@ -508,7 +499,7 @@ void tcp_server_task(void *pvParameters) {
         close(sock);
     }
     close(listen_sock);
-    vTaskDelete(NULL);
+    vTaskDelete(nullptr);
 }
 
 static void monitor_task(void *pvParameter)
@@ -516,12 +507,11 @@ static void monitor_task(void *pvParameter)
 	while(1)
 	{
         ESP_LOGI(TAG, "%d %d %d", heap_caps_get_free_size(MALLOC_CAP_INTERNAL), heap_caps_get_free_size( MALLOC_CAP_DMA ), heap_caps_get_free_size( MALLOC_CAP_SPIRAM ));
-        UBaseType_t remaining_stack = uxTaskGetStackHighWaterMark(NULL);
+        UBaseType_t remaining_stack = uxTaskGetStackHighWaterMark(nullptr);
         ESP_LOGI("total", "Remaining stack size: %u", remaining_stack);
 		vTaskDelay(5000 / portTICK_PERIOD_MS);
 	}
 }
-
 extern "C" void app_main(void)
 {
     printf("Hello world!\n");
@@ -530,12 +520,13 @@ extern "C" void app_main(void)
     // uart_init_stm32();
     uart_init_rs485();
     // ethernet_init();
-    xTaskCreate(tcp_server_task, "tcp_server_task", 8192, NULL, 5, NULL);
-
-    xTaskCreate([] (void *pvParameter) {
-        parseJson(read_json_to_string(FILE_PATH));
-        vTaskDelete(NULL);
-    }, "parseJson", 8192, NULL, 5, NULL);
+    xTaskCreate(tcp_server_task, "tcp_server_task", 8192, nullptr, 5, nullptr);
 
     esp_err_t err = esp_ota_mark_app_valid_cancel_rollback();
+
+    xTaskCreate([] (void *param) {
+        vTaskDelay(1000 / portTICK_PERIOD_MS);  // 总之, 就是要稍微等一下, 不然第二次parseJson时会崩溃
+        parseJson(read_json_to_string(FILE_PATH));
+        vTaskDelete(nullptr);
+    }, "parse_json_task", 8192, nullptr, 3, nullptr);
 }
