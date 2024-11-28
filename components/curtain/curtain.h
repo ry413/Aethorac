@@ -30,11 +30,18 @@ public:
                        PanelButton *source_button) override;
 
 private:
-    PanelButton* open_button = nullptr;     // 开/关来源按钮
+    enum class State { CLOSED, OPEN, OPENING, CLOSING, STOPPED };   // 通常使用的"开/关"控制用的状态
+    State state = State::CLOSED;
+
+    enum class LastAction { NONE, OPENING, CLOSING };   // 用于, 用一个按键控制窗帘的时候, 即"反转"操作
+    LastAction last_action = LastAction::NONE;
+
+    PanelButton* reverse_button = nullptr;              // 三个按钮, "反转"与"开/关"只会存在一种
+    PanelButton* open_button = nullptr;
     PanelButton* close_button = nullptr;
 
-    enum class State { CLOSED, OPEN, OPENING, CLOSING, STOPPED };
-    State state = State::CLOSED;
+    PanelButton* action_button = nullptr;               // 当前动作的按钮（开、关或反转）
+
 
     TaskHandle_t actionTaskHandle = nullptr;  // 任务句柄
 
@@ -44,8 +51,11 @@ private:
     // 处理"关"操作
     void handleCloseAction();
 
+    // 处理"反转"操作
+    void handleReverseAction();
+
     // 打开操作对应的继电器
-    void startAction(std::shared_ptr<BoardOutput> channel, State newState);
+    void startAction(std::shared_ptr<BoardOutput> channel, State newState, PanelButton* action_button);
 
     // 停止此时的动作的继电器
     void stopCurrentAction();
@@ -53,8 +63,7 @@ private:
     // 成功打开/关闭窗帘, 关闭对应继电器, 并熄灭来源按钮的指示灯
     void completeAction();
 
-    // 熄灭某个按钮的指示灯     // 窗帘类不管点亮指示灯, 只会关闭, 点亮交由Laminor的面板配置管理
-    void off_button_bl(PanelButton *button);
+    void updateButtonIndicator(PanelButton* button, bool state);
 };
 
 class CurtainManager : public ResourceManager<uint16_t, Curtain, CurtainManager> {

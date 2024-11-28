@@ -5,7 +5,6 @@
 void PanelButton::press() {
     // 还真要检查, 防止动作组列表是空的
     if (current_index < action_group_list.size()) {
-        // printf("触发第 %d 个动作组\n", current_index + 1);
         action_group_list[current_index]->execute(this);
 
         // 执行指示灯策略

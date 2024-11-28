@@ -162,11 +162,6 @@ void handle_rs485_data(uint8_t* data, int length) {
 
             if (is_pressed && !is_operating) {
                 // 按钮按下, 且未被标记为"正在操作"
-                if (panel->buttons.find(i) == panel->buttons.end() || !panel->buttons[i]) {
-                    ESP_LOGE(TAG, "Button %d not found or is null in panel %d", i, panel->id);
-                    return;
-                }
-        ESP_LOGI(TAG, "Pressing Button ID: %d", i);
                 panel->buttons[i]->press();
                 operation_flags |= mask;                    // 设置"正在操作"标记
             } else if (!is_pressed && is_operating) {
@@ -179,8 +174,8 @@ void handle_rs485_data(uint8_t* data, int length) {
         // 更新按钮操作标记
         panel->set_button_operation_flags(operation_flags);
         
-        // 发送指令码更新面板状态
-        panel->publish_bl_state();
+        // 发送指令码更新面板状态   // 现在不在这里操作指示灯了, 都下发给具体设备来操作
+        // panel->publish_bl_state();
         
     }
     // else if
