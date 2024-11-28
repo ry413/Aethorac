@@ -101,12 +101,12 @@ enum class ButtonPolitAction {
     LIGHT_ON,           // 常亮
     LIGHT_SHORT,        // 短亮(1秒)
     LIGHT_OFF,          // 熄灭
-    INGORE,             // 忽略
+    IGNORE,             // 忽略
 };
 // 对同面板别的按钮的操作
 enum class ButtonOtherPolitAction {
     LIGHT_OFF,          // 熄灭
-    INGORE,             // 忽略
+    IGNORE,             // 忽略
 };
 // // 面板上的单个按钮的配置
 // struct btnConfig {

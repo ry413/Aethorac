@@ -161,13 +161,13 @@ void handle_rs485_data(uint8_t* data, int length) {
             if (is_pressed && !is_operating) {
                 // 按钮按下, 且未被标记为"正在操作"
                 panel->buttons[i].press();
-                panel->toggle_button_bl_state(i);           // 反转指示灯状态
+                // panel->toggle_button_bl_state(i);           // 反转指示灯状态
                 operation_flags |= mask;                    // 设置"正在操作"标记
             } else if (!is_pressed && is_operating) {
                 // 按钮释放，且之前被标记为"正在操作"
                 operation_flags &= ~mask;    // 清除标记
             }
-            // 如果按钮状态未变化, 或已经标记为"正在操作", 则不进行任何操作
+            // 如果按钮状态未变化, 或已经标记为"正在操作", 则不进行任何操作     // [这一行似乎很没存在感, 但是很重要]
         }
 
         // 更新按钮操作标记
@@ -176,7 +176,7 @@ void handle_rs485_data(uint8_t* data, int length) {
         // 得到新的指示灯状态
         uint8_t new_bl_states = panel->get_button_bl_states();
 
-        // 构造开关写入码, 设置指示灯
+        // 构造开关写入码, 设置指示灯               第五位target_buttons, 这里原封不动传回, 但面板实际上是不关心的
         generate_response(CODE_SWITCH_WRITE, 0x00, panel_id, target_buttons, new_bl_states);
         
     }

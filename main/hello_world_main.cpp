@@ -52,32 +52,39 @@ void init_spiffs() {
     }
 }
 
-
 std::string read_json_to_string(const std::string& filepath) {
-    FILE* file = fopen(filepath.c_str(), "r");
-    if (!file) {
-        printf("Failed to open file: %s\n", filepath.c_str());
+    // 打开文件
+    int file_fd = open(filepath.c_str(), O_RDONLY);
+    if (file_fd < 0) {
+        ESP_LOGE(TAG, "Failed to open file: %s", filepath.c_str());
         return "";
     }
 
-    fseek(file, 0, SEEK_END);
-    long file_size = ftell(file);
-    rewind(file);
-
+    // 获取文件大小
+    struct stat file_stat;
+    if (fstat(file_fd, &file_stat) < 0) {
+        ESP_LOGE(TAG, "Failed to get file stat: %s", filepath.c_str());
+        close(file_fd);
+        return "";
+    }
+    size_t file_size = file_stat.st_size;
     if (file_size <= 0) {
-        fclose(file);
+        ESP_LOGE(TAG, "File is empty: %s", filepath.c_str());
+        close(file_fd);
         return "";
     }
 
+    // 读取文件内容
     std::string content(file_size, '\0');
-    size_t read_size = fread(&content[0], 1, file_size, file);
-    fclose(file);
+    ssize_t read_size = read(file_fd, &content[0], file_size);
+    close(file_fd);
 
-    if (read_size != static_cast<size_t>(file_size)) {
-        printf("Failed to read the entire file: %s\n", filepath.c_str());
+    if (read_size < 0 || static_cast<size_t>(read_size) != file_size) {
+        ESP_LOGE(TAG, "Failed to read file: %s", filepath.c_str());
         return "";
     }
 
+    ESP_LOGI(TAG, "File read successfully: %s", filepath.c_str());
     return content;
 }
 
@@ -107,7 +114,6 @@ std::shared_ptr<IActionTarget> getActionTarget(ActionType type, uint16_t uid) {
 
 // 解析json
 void parseJson(const std::string& json_str) {
-    // printf("json: %s\n", json_str.c_str());
     // clean all
     BoardManager::getInstance().clear();
     LampManager::getInstance().clear();
@@ -117,6 +123,7 @@ void parseJson(const std::string& json_str) {
     PanelManager::getInstance().clear();
     
     rapidjson::Document json_data;
+    ESP_LOGI(TAG, "Free heap before parse: %ld bytes", esp_get_free_heap_size());
     if (json_data.Parse(json_str.c_str()).HasParseError()) {
         ESP_LOGE(TAG, "JSON parse error: %s (at offset %u)",
                  rapidjson::GetParseError_En(json_data.GetParseError()),
@@ -491,6 +498,7 @@ void tcp_server_task(void *pvParameters) {
                     ESP_LOGE(TAG, "Failed to write to file");
                 } else {
                     ESP_LOGI(TAG, "Data saved to file successfully");
+                    // printf("接收到: %s\n", received_data.c_str());
                     // 写入文件后直接开始解析并应用
                     parseJson(received_data);
                 }

@@ -14,14 +14,12 @@ class Panel;
 class PanelButton {
 public:
     uint8_t id;
-    std::shared_ptr<Panel> host_panel;   // 指向所在的面板
+    std::weak_ptr<Panel> host_panel;   // 指向所在的面板
 
-    // 这三个vector里是一对一对一的
+    // 这三个vector长度相同, 一一对应
     std::vector<std::shared_ptr<ActionGroup>> action_group_list;
-    std::vector<ButtonPolitAction> pressed_polit_actions;           // 执行完一个动作组后, 本按钮的指示灯的行为
-    std::vector<ButtonOtherPolitAction> pressed_other_polit_actions;      // 同时, 所有其他按钮的行为
-
-    bool polit_lamp_state = false;      // 指示灯状态
+    std::vector<ButtonPolitAction> pressed_polit_actions;               // 执行完一个动作组后, 本按钮的指示灯的行为
+    std::vector<ButtonOtherPolitAction> pressed_other_polit_actions;    // 同时, 所有其他按钮的行为
 
     // 按下按钮
     void press() {
@@ -30,9 +28,15 @@ public:
             printf("触发第 %d 个动作组\n", current_index + 1);
             action_group_list[current_index]->execute();
 
+            // 执行指示灯策略
+            execute_polit_actions(current_index);
+
             current_index = (current_index + 1) % action_group_list.size();
         }
     };
+
+    // 执行指示灯策略
+    void execute_polit_actions(uint8_t index);
 
 private:
     uint8_t current_index = 0;      // 此时按下会执行第几个动作
@@ -57,6 +61,24 @@ public:
         uint8_t state = get_button_bl_states();
         state ^= (1 << index);
         set_button_bl_states(state);
+    }
+
+    // 设置指定按钮的指示灯状态
+    void set_button_bl_state(uint8_t button_id, bool state) {
+        uint8_t bl_states = get_button_bl_states();
+        if (state) {
+            bl_states |= (1 << button_id);
+        } else {
+            bl_states &= ~(1 << button_id);
+        }
+        set_button_bl_states(bl_states);
+    }
+
+    // 熄灭除指定按钮外的所有按钮的指示灯
+    void turn_off_other_buttons(uint8_t exclude_button_id) {
+        uint8_t bl_states = get_button_bl_states();
+        bl_states &= (1 << exclude_button_id);  // 保留指定按钮的状态，其余清零
+        set_button_bl_states(bl_states);
     }
 private:
     // ******************* 驱动层 *******************

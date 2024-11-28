@@ -21,8 +21,6 @@ public:
 
     void execute() {
         if (target) {
-            printf("执行中\n");
-
             target->executeAction(operation, parameter);
         } else {
             ESP_LOGE(TAG, "target不存在");
