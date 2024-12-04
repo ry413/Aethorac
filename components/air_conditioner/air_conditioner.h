@@ -9,14 +9,16 @@
 
 class BoardOutput;
 
-class AirConBase : public IActionTarget {
+
+
+class AirConBase : public IDevice {
 public:
     uint8_t ac_id;
     ACType  ac_type;
 
-    void executeAction(const std::string& operation, 
-                       const std::variant<int, nullptr_t>& parameter,
-                       PanelButton* source_button) override;
+    // void executeAction(const std::string& operation, 
+    //                    const std::variant<int, nullptr_t>& parameter,
+    //                    PanelButton* source_button) override;
 };
 
 // 单管空调
@@ -40,21 +42,5 @@ class InfraredAC : public AirConBase {
 
 };
 
-
-class AirConManager : public ResourceManager<uint16_t, AirConBase, AirConManager> {
-    friend class SingletonManager<AirConManager>;
-private:
-    AirConManager() = default;
-public:
-    uint8_t default_target_temp;        // 默认目标温度
-    ACMode default_mode;                // 默认模式
-    ACWindSpeed default_wind_speed;     // 默认风速
-    uint8_t stopThreshold;              // 超出目标温度后停止工作的阈值
-    uint8_t rework_threshold;           // 回温后重新开始工作的阈值
-    ACStopAction stop_action;           // 达到目标温度停止工作应该怎么停
-    uint8_t low_diff;                   // 风速: 自动时, 进入低风所需小于等于的温差
-    uint8_t high_diff;                  // 温差大于等于以进入高风
-    ACWindSpeed auto_fun_wind_speed;    // (风速: AUTO, 模式: 通风) 这个状态时, 应该开什么风速
-};
 
 #endif // AIR_CONDITIONER_H

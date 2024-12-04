@@ -21,7 +21,6 @@ extern "C" {
 #include "lamp.h"
 #include "air_conditioner.h"
 #include "rs485.h"
-#include "action_group.h"
 #include "panel.h"
 #include "delay_action.h"
 #include "curtain.h"
@@ -88,38 +87,12 @@ std::string read_json_to_string(const std::string& filepath) {
     return content;
 }
 
-// 根据type和uid返回对应的实例
-std::shared_ptr<IActionTarget> getActionTarget(ActionType type, uint16_t uid) {
-    switch (type) {
-        case ActionType::LAMP:
-            return LampManager::getInstance().getItem(uid);
-        case ActionType::AC:
-            return AirConManager::getInstance().getItem(uid);
-        case ActionType::CURTAIN:
-            return CurtainManager::getInstance().getItem(uid);
-        case ActionType::RS485:
-            return RS485Manager::getInstance().getItem(uid);
-        case ActionType::RELAY:
-            return BoardManager::getInstance().getBoardOutput(uid);
-        case ActionType::ACTION_GROUP:
-            return ActionGroupManager::getInstance().getItem(uid);
-        case ActionType::DELAY:
-            ESP_LOGE(__func__, "这里不应该传入DELAY");
-            return nullptr;
-        default:
-            ESP_LOGE(__func__, "无法识别的类型");
-            return nullptr;
-    }
-}
-
 // 解析json
 void parseJson(const std::string& json_str) {
     // clean all
+    // 现在只有三个Manager
+    DeviceManager::getInstance().clear();
     BoardManager::getInstance().clear();
-    LampManager::getInstance().clear();
-    AirConManager::getInstance().clear();
-    RS485Manager::getInstance().clear();
-    ActionGroupManager::getInstance().clear();
     PanelManager::getInstance().clear();
     
     rapidjson::Document json_data;
@@ -181,84 +154,96 @@ void parseJson(const std::string& json_str) {
             lamp->uid = item["uid"].GetUint();
             lamp->type = static_cast<LampType>(item["type"].GetInt());
             lamp->name = item["name"].GetString();
-            lamp->channel_power = BoardManager::getInstance().getBoardOutput(
-                item["channelPowerUid"].GetUint());
-            LampManager::getInstance().addItem(lamp->uid, lamp);
-        }
-    }
+            lamp->output = BoardManager::getInstance().getBoardOutput(
+                item["outputUid"].GetUint());
+            
+            // 解析关联按钮
+            if (item.HasMember("associatedButtons") && item["associatedButtons"].IsArray()) {
+                const rapidjson::Value& buttons = item["associatedButtons"];
+                for (rapidjson::SizeType j = 0; j < buttons.Size(); ++j) {
+                    const rapidjson::Value& btn_item = buttons[j];
+                    uint8_t panel_id = btn_item["panelId"].GetUint();
+                    uint8_t button_id = btn_item["buttonId"].GetUint();
 
-    ESP_LOGI(TAG, "解析 空调 配置");
-    // ****************** 空调 ******************
-    auto& airConManager = AirConManager::getInstance();
-    if (json_data.HasMember("空调通用配置") && json_data["空调通用配置"].IsObject()) {
-        const rapidjson::Value& ac_common_config = json_data["空调通用配置"];
-        airConManager.default_target_temp = ac_common_config["defaultTemp"].GetUint();
-        airConManager.default_mode = static_cast<ACMode>(ac_common_config["defaultMode"].GetInt());
-        airConManager.default_wind_speed = static_cast<ACWindSpeed>(ac_common_config["defaultFanSpeed"].GetInt());
-        airConManager.stopThreshold = ac_common_config["stopThreshold"].GetUint();
-        airConManager.rework_threshold = ac_common_config["reworkThreshold"].GetUint();
-        airConManager.stop_action = static_cast<ACStopAction>(ac_common_config["stopAction"].GetInt());
-        airConManager.low_diff = ac_common_config["lowFanTempDiff"].GetUint();
-        airConManager.high_diff = ac_common_config["highFanTempDiff"].GetUint();
-        airConManager.auto_fun_wind_speed = static_cast<ACWindSpeed>(ac_common_config["autoVentSpeed"].GetInt());
-    }
-
-    if (json_data.HasMember("空调列表") && json_data["空调列表"].IsArray()) {
-        const rapidjson::Value& ac_list = json_data["空调列表"];
-        for (rapidjson::SizeType i = 0; i < ac_list.Size(); ++i) {
-            const rapidjson::Value& item = ac_list[i];
-            ACType ac_type = static_cast<ACType>(item["type"].GetInt());
-            switch (ac_type) {
-                case ACType::SINGLE_PIPE_FCU: {
-                    auto ac = std::make_shared<SinglePipeFCU>();
-                    ac->ac_id = item["id"].GetUint();
-                    ac->ac_type = ac_type;
-                    ac->power_channel = BoardManager::getInstance().getBoardOutput(
-                        item["channelPowerUid"].GetUint());
-                    ac->low_channel = BoardManager::getInstance().getBoardOutput(
-                        item["channelLowUid"].GetUint());
-                    ac->mid_channel = BoardManager::getInstance().getBoardOutput(
-                        item["channelMidUid"].GetUint());
-                    ac->high_channel = BoardManager::getInstance().getBoardOutput(
-                        item["channelHighUid"].GetUint());
-                    ac->water1_channel = BoardManager::getInstance().getBoardOutput(
-                        item["channelWater1Uid"].GetUint());
-                    airConManager.addItem(ac->ac_id, ac);
-                    break;
+                    lamp->associated_buttons.push_back(AssociatedButton(panel_id, button_id));
                 }
-                case ACType::DOUBLE_PIPE_FCU: {
-                    auto ac = std::make_shared<DoublePipeFCU>();
-                    ac->ac_id = item["id"].GetUint();
-                    ac->ac_type = ac_type;
-                    ac->power_channel = BoardManager::getInstance().getBoardOutput(
-                        item["channelPowerUid"].GetUint());
-                    ac->low_channel = BoardManager::getInstance().getBoardOutput(
-                        item["channelLowUid"].GetUint());
-                    ac->mid_channel = BoardManager::getInstance().getBoardOutput(
-                        item["channelMidUid"].GetUint());
-                    ac->high_channel = BoardManager::getInstance().getBoardOutput(
-                        item["channelHighUid"].GetUint());
-                    ac->water1_channel = BoardManager::getInstance().getBoardOutput(
-                        item["channelWater1Uid"].GetUint());
-                    ac->water2_channel = BoardManager::getInstance().getBoardOutput(
-                        item["channelWater2Uid"].GetUint());
-                    airConManager.addItem(ac->ac_id, ac);
-                    break;
-                }
-                case ACType::INFRARED: {
-                    auto ac = std::make_shared<InfraredAC>();
-                    ac->ac_id = item["id"].GetUint();
-                    ac->ac_type = ac_type;
-                    // Additional initializations if necessary
-                    airConManager.addItem(ac->ac_id, ac);
-                    break;
-                }
-                default:
-                    ESP_LOGW(TAG, "Unknown AC type: %d", static_cast<int>(ac_type));
-                    break;
             }
+            DeviceManager::getInstance().addItem(lamp->uid, lamp);
         }
     }
+
+    // ESP_LOGI(TAG, "解析 空调 配置");
+    // // ****************** 空调 ******************
+    // auto& airConManager = AirConManager::getInstance();
+    // if (json_data.HasMember("空调通用配置") && json_data["空调通用配置"].IsObject()) {
+    //     const rapidjson::Value& ac_common_config = json_data["空调通用配置"];
+    //     airConManager.default_target_temp = ac_common_config["defaultTemp"].GetUint();
+    //     airConManager.default_mode = static_cast<ACMode>(ac_common_config["defaultMode"].GetInt());
+    //     airConManager.default_wind_speed = static_cast<ACWindSpeed>(ac_common_config["defaultFanSpeed"].GetInt());
+    //     airConManager.stopThreshold = ac_common_config["stopThreshold"].GetUint();
+    //     airConManager.rework_threshold = ac_common_config["reworkThreshold"].GetUint();
+    //     airConManager.stop_action = static_cast<ACStopAction>(ac_common_config["stopAction"].GetInt());
+    //     airConManager.low_diff = ac_common_config["lowFanTempDiff"].GetUint();
+    //     airConManager.high_diff = ac_common_config["highFanTempDiff"].GetUint();
+    //     airConManager.auto_fun_wind_speed = static_cast<ACWindSpeed>(ac_common_config["autoVentSpeed"].GetInt());
+    // }
+
+    // if (json_data.HasMember("空调列表") && json_data["空调列表"].IsArray()) {
+    //     const rapidjson::Value& ac_list = json_data["空调列表"];
+    //     for (rapidjson::SizeType i = 0; i < ac_list.Size(); ++i) {
+    //         const rapidjson::Value& item = ac_list[i];
+    //         ACType ac_type = static_cast<ACType>(item["type"].GetInt());
+    //         switch (ac_type) {
+    //             case ACType::SINGLE_PIPE_FCU: {
+    //                 auto ac = std::make_shared<SinglePipeFCU>();
+    //                 ac->ac_id = item["id"].GetUint();
+    //                 ac->ac_type = ac_type;
+    //                 ac->power_channel = BoardManager::getInstance().getBoardOutput(
+    //                     item["channelPowerUid"].GetUint());
+    //                 ac->low_channel = BoardManager::getInstance().getBoardOutput(
+    //                     item["channelLowUid"].GetUint());
+    //                 ac->mid_channel = BoardManager::getInstance().getBoardOutput(
+    //                     item["channelMidUid"].GetUint());
+    //                 ac->high_channel = BoardManager::getInstance().getBoardOutput(
+    //                     item["channelHighUid"].GetUint());
+    //                 ac->water1_channel = BoardManager::getInstance().getBoardOutput(
+    //                     item["channelWater1Uid"].GetUint());
+    //                 airConManager.addItem(ac->ac_id, ac);
+    //                 break;
+    //             }
+    //             case ACType::DOUBLE_PIPE_FCU: {
+    //                 auto ac = std::make_shared<DoublePipeFCU>();
+    //                 ac->ac_id = item["id"].GetUint();
+    //                 ac->ac_type = ac_type;
+    //                 ac->power_channel = BoardManager::getInstance().getBoardOutput(
+    //                     item["channelPowerUid"].GetUint());
+    //                 ac->low_channel = BoardManager::getInstance().getBoardOutput(
+    //                     item["channelLowUid"].GetUint());
+    //                 ac->mid_channel = BoardManager::getInstance().getBoardOutput(
+    //                     item["channelMidUid"].GetUint());
+    //                 ac->high_channel = BoardManager::getInstance().getBoardOutput(
+    //                     item["channelHighUid"].GetUint());
+    //                 ac->water1_channel = BoardManager::getInstance().getBoardOutput(
+    //                     item["channelWater1Uid"].GetUint());
+    //                 ac->water2_channel = BoardManager::getInstance().getBoardOutput(
+    //                     item["channelWater2Uid"].GetUint());
+    //                 airConManager.addItem(ac->ac_id, ac);
+    //                 break;
+    //             }
+    //             case ACType::INFRARED: {
+    //                 auto ac = std::make_shared<InfraredAC>();
+    //                 ac->ac_id = item["id"].GetUint();
+    //                 ac->ac_type = ac_type;
+    //                 // Additional initializations if necessary
+    //                 airConManager.addItem(ac->ac_id, ac);
+    //                 break;
+    //             }
+    //             default:
+    //                 ESP_LOGW(TAG, "Unknown AC type: %d", static_cast<int>(ac_type));
+    //                 break;
+    //         }
+    //     }
+    // }
 
     ESP_LOGI(TAG, "解析 窗帘 配置");
     // ****************** 窗帘 ******************
@@ -269,85 +254,40 @@ void parseJson(const std::string& json_str) {
             auto curtain = std::make_shared<Curtain>();
             curtain->uid = item["uid"].GetUint();
             curtain->name = item["name"].GetString();
-            curtain->channel_open = BoardManager::getInstance().getBoardOutput(
-                item["channelOpenUid"].GetUint());
-            curtain->channel_close = BoardManager::getInstance().getBoardOutput(
-                item["channelCloseUid"].GetUint());
+            curtain->output_open = BoardManager::getInstance().getBoardOutput(
+                item["outputOpenUid"].GetUint());
+            curtain->output_close = BoardManager::getInstance().getBoardOutput(
+                item["outputCloseUid"].GetUint());
             curtain->run_duration = item["runDuration"].GetUint();
-            CurtainManager::getInstance().addItem(curtain->uid, curtain);
-        }
-    }
 
-    ESP_LOGI(TAG, "解析 RS485 配置");
-    // ****************** RS485指令码 ******************
-    if (json_data.HasMember("485指令码列表") && json_data["485指令码列表"].IsArray()) {
-        const rapidjson::Value& command_list = json_data["485指令码列表"];
-        for (rapidjson::SizeType i = 0; i < command_list.Size(); ++i) {
-            const rapidjson::Value& item = command_list[i];
-            auto command = std::make_shared<RS485Command>();
-            command->uid = item["uid"].GetUint();
-            command->name = item["name"].GetString();
-            command->code = pavectorseHexToFixedArray(item["code"].GetString());
-            RS485Manager::getInstance().addItem(command->uid, command);
-        }
-    }
+            // 解析关联按钮
+            if (item.HasMember("associatedButtons") && item["associatedButtons"].IsArray()) {
+                const rapidjson::Value& buttons = item["associatedButtons"];
+                for (rapidjson::SizeType j = 0; j < buttons.Size(); ++j) {
+                    const rapidjson::Value& btn_item = buttons[j];
+                    uint8_t panel_id = btn_item["panelId"].GetUint();
+                    uint8_t button_id = btn_item["buttonId"].GetUint();
 
-    ESP_LOGI(TAG, "解析 动作组 配置 (1/2)");
-    // ****************** 动作组 ******************
-    if (json_data.HasMember("动作组列表") && json_data["动作组列表"].IsArray()) {
-        const rapidjson::Value& action_group_list = json_data["动作组列表"];
-        for (rapidjson::SizeType i = 0; i < action_group_list.Size(); ++i) {
-            const rapidjson::Value& item = action_group_list[i];
-            auto action_group = std::make_shared<ActionGroup>();
-            action_group->uid = item["uid"].GetUint();
-            action_group->name = item["name"].GetString();
-
-            if (item.HasMember("actionList") && item["actionList"].IsArray()) {
-                action_group->actions_json.SetArray();
-                rapidjson::Document::AllocatorType& allocator = json_data.GetAllocator();
-                action_group->actions_json.CopyFrom(item["actionList"], allocator);
-            } else {
-                ESP_LOGE(TAG, "动作组[%s] 没有有效的 actionList", item["name"].GetString());
-                continue;
-            }
-
-            ActionGroupManager::getInstance().addItem(action_group->uid, action_group);
-        }
-    }
-
-    ESP_LOGI(TAG, "解析 动作组 配置 (2/2)");
-    // 第二遍再解析动作列表, 因为有的动作目标可能是动作组
-    for (auto& [_, action_group] : ActionGroupManager::getInstance().getAllItems()) {
-        const rapidjson::Value& action_list = action_group->actions_json;
-
-        if (action_list.IsArray()) {
-            for (rapidjson::SizeType i = 0; i < action_list.Size(); ++i) {
-                const rapidjson::Value& action_item = action_list[i];
-                Action action;
-                action.type = static_cast<ActionType>(action_item["type"].GetInt());
-                action.operation = action_item["operation"].GetString();
-                
-                // 除了延时, 都能找到实例
-                if (action.type == ActionType::DELAY) {
-                    action.target = std::make_shared<DelayAction>();
-                } else {
-                    uint16_t target_uid = action_item["targetUID"].GetUint();
-                    action.target = getActionTarget(action.type, target_uid);
+                    curtain->associated_buttons.push_back(AssociatedButton(panel_id, button_id));
                 }
-
-                // 只要存在parameter就可以拿出来, 能到这一步就没什么问题
-                if (action_item.HasMember("parameter") && action_item["parameter"].IsInt()) {
-                    action.parameter = action_item["parameter"].GetInt();
-                }
-                action_group->action_list.push_back(std::move(action));
             }
-        } else {
-            ESP_LOGW(TAG, "动作组[%s] 的 actionList 不是数组", action_group->name.c_str());
+            DeviceManager::getInstance().addItem(curtain->uid, curtain);
         }
-
-        // 清空actions_json
-        action_group->actions_json.SetNull();
     }
+
+    // ESP_LOGI(TAG, "解析 RS485 配置");
+    // // ****************** RS485指令码 ******************
+    // if (json_data.HasMember("485指令码列表") && json_data["485指令码列表"].IsArray()) {
+    //     const rapidjson::Value& command_list = json_data["485指令码列表"];
+    //     for (rapidjson::SizeType i = 0; i < command_list.Size(); ++i) {
+    //         const rapidjson::Value& item = command_list[i];
+    //         auto command = std::make_shared<RS485Command>();
+    //         command->uid = item["uid"].GetUint();
+    //         command->name = item["name"].GetString();
+    //         command->code = pavectorseHexToFixedArray(item["code"].GetString());
+    //         RS485Manager::getInstance().addItem(command->uid, command);
+    //     }
+    // }
 
     ESP_LOGI(TAG, "解析 面板 配置");
     // ****************** 面板 ******************
@@ -367,40 +307,60 @@ void parseJson(const std::string& json_str) {
                     button->id = button_item["id"].GetUint();
                     button->host_panel = panel;
 
-                    if (button_item.HasMember("actionGroupUids") && button_item["actionGroupUids"].IsArray()) {
-                        const rapidjson::Value& action_group_uids = button_item["actionGroupUids"];
-                        for (rapidjson::SizeType k = 0; k < action_group_uids.Size(); ++k) {
-                            uint16_t action_group_uid = action_group_uids[k].GetUint();
-                            button->action_group_list.push_back(
-                                ActionGroupManager::getInstance().getItem(action_group_uid)
-                            );
+                    if (button_item.HasMember("actionGroups") && button_item["actionGroups"].IsArray()) {
+                        const rapidjson::Value& action_groups = button_item["actionGroups"];
+                        for (rapidjson::SizeType k = 0; k < action_groups.Size(); ++k) {
+                            const rapidjson::Value& action_group_item = action_groups[k];
+                            PanelButtonActionGroup action_group;
+                            action_group.pressed_polit_actions = static_cast<ButtonPolitAction>(action_group_item["pressedPolitAction"].GetInt());
+                            action_group.pressed_other_polit_actions = static_cast<ButtonOtherPolitAction>(action_group_item["pressedOtherPolitAction"].GetInt()); 
+
+                            if (action_group_item.HasMember("atomicActions") && action_group_item["atomicActions"].IsArray()) {
+                                const rapidjson::Value& atomic_actions = action_group_item["atomicActions"];
+                                for (rapidjson::SizeType l = 0; l < atomic_actions.Size(); ++l) {
+                                    const rapidjson::Value& atomic_action_item = atomic_actions[l];
+                                    AtomicAction atomic_action;
+                                    atomic_action.target_device = DeviceManager::getInstance().getItem(atomic_action_item["deviceUid"].GetUint());
+                                    atomic_action.operation = atomic_action_item["operation"].GetString();
+                                    atomic_action.parameter = atomic_action_item["parameter"].GetInt();
+
+                                    action_group.atomic_actions.push_back(atomic_action);
+                                }
+                            }
+                            button->action_groups.push_back(action_group);
                         }
                     }
-
-                    if (button_item.HasMember("pressedPolitActions") && button_item["pressedPolitActions"].IsArray()) {
-                        const rapidjson::Value& pressed_polit_actions = button_item["pressedPolitActions"];
-                        for (rapidjson::SizeType k = 0; k < pressed_polit_actions.Size(); ++k) {
-                            button->pressed_polit_actions.push_back(
-                                static_cast<ButtonPolitAction>(pressed_polit_actions[k].GetInt())
-                            );
-                        }
-                    }
-
-                    if (button_item.HasMember("pressedOtherPolitActions") && button_item["pressedOtherPolitActions"].IsArray()) {
-                        const rapidjson::Value& pressed_other_polit_actions = button_item["pressedOtherPolitActions"];
-                        for (rapidjson::SizeType k = 0; k < pressed_other_polit_actions.Size(); ++k) {
-                            button->pressed_other_polit_actions.push_back(
-                                static_cast<ButtonOtherPolitAction>(pressed_other_polit_actions[k].GetInt())
-                            );
-                        }
-                    }
-
                     panel->buttons[button->id] = button;
                 }
             }
             PanelManager::getInstance().addItem(panel->id, panel);
         }
     }
+
+    ESP_LOGI(TAG, "解析所有设备的关联按钮");
+    // 窗帘
+    auto curtains = DeviceManager::getInstance().getDevicesOfType<Curtain>();
+    for (auto& curtain : curtains) {
+        // 遍历此窗帘的所有关联按钮
+        for (auto& associated_button : curtain->associated_buttons) {
+            // 遍历这个按钮的所有动作组
+            auto& panel_button = PanelManager::getInstance().getItem(
+                associated_button.panel_id)->buttons[associated_button.button_id];
+            for (auto& action_group : panel_button->action_groups) {
+                // 遍历这个动作组的所有原子级动作
+                for (auto& atomic_action : action_group.atomic_actions) {
+                    if (atomic_action.operation == "打开") {
+                        curtain->open_button = panel_button;
+                    } else if (atomic_action.operation == "关闭") {
+                        curtain->close_button = panel_button;
+                    } else if (atomic_action.operation == "反转") {
+                        curtain->reverse_button = panel_button;
+                    }
+                }
+            }
+        }
+    }
+
     ESP_LOGI(TAG, "所有配置已成功解析");
 }
 
@@ -524,9 +484,9 @@ extern "C" void app_main(void)
 
     esp_err_t err = esp_ota_mark_app_valid_cancel_rollback();
 
-    xTaskCreate([] (void *param) {
-        vTaskDelay(1000 / portTICK_PERIOD_MS);  // 总之, 就是要稍微等一下, 不然第二次parseJson时会崩溃
-        parseJson(read_json_to_string(FILE_PATH));
-        vTaskDelete(nullptr);
-    }, "parse_json_task", 8192, nullptr, 3, nullptr);
+    // xTaskCreate([] (void *param) {
+    //     vTaskDelay(1000 / portTICK_PERIOD_MS);  // 总之, 就是要稍微等一下, 不然第二次parseJson时会崩溃
+    //     parseJson(read_json_to_string(FILE_PATH));
+    //     vTaskDelete(nullptr);
+    // }, "parse_json_task", 8192, nullptr, 3, nullptr);
 }

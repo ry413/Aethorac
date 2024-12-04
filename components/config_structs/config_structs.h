@@ -57,17 +57,6 @@ enum class ACStopAction: uint8_t {
     CLOSE_NONE
 };
 
-// ****************** 动作组 ******************
-enum class ActionType {
-    LAMP,
-    AC,
-    CURTAIN,
-    RS485,
-    RELAY,
-    ACTION_GROUP,
-    DELAY
-};
-
 // ****************** 面板 ******************
 // 按钮按下时对此按钮指示灯的操作
 enum class ButtonPolitAction {

@@ -32,25 +32,25 @@ uint8_t find_zero_position(uint8_t input);
 // 将指令码字符串解析成array
 std::vector<uint8_t> pavectorseHexToFixedArray(const std::string& hexString);
 
-class RS485Command : public IActionTarget {
-public:
-    uint16_t uid;
-    std::string name;
-    std::vector<uint8_t> code;
+// class RS485Command : public IDevice {
+// public:
+//     uint16_t uid;
+//     std::string name;
+//     std::vector<uint8_t> code;
 
-    void executeAction(const std::string& operation, const std::variant<int, nullptr_t>& parameter,
-                       PanelButton* source_button) override {
-        if (operation == "发送") {
-            sendRS485CMD(code);
-            printf("已发送指令码[%s]\n", name.c_str());
-        }
-    }
-};
+//     void executeAction(const std::string& operation, const std::variant<int, nullptr_t>& parameter,
+//                        PanelButton* source_button) override {
+//         if (operation == "发送") {
+//             sendRS485CMD(code);
+//             printf("已发送指令码[%s]\n", name.c_str());
+//         }
+//     }
+// };
 
 
-class RS485Manager : public ResourceManager<uint16_t, RS485Command, RS485Manager> {
-    friend class SingletonManager<RS485Manager>;
-private:
-    RS485Manager() = default;
-};
+// class RS485Manager : public ResourceManager<uint16_t, RS485Command, RS485Manager> {
+//     friend class SingletonManager<RS485Manager>;
+// private:
+//     RS485Manager() = default;
+// };
 #endif // RS485_CONFIG_H

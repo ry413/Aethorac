@@ -1,9 +1,22 @@
 #include "rs485.h"
 #include "driver/uart.h"
+#include <freertos/semphr.h>
 #include <string>
 #include "panel.h"
+#include "esp_log.h"
 
 #define TAG "RS485"
+
+// 定义互斥锁
+static SemaphoreHandle_t rs485Mutex = nullptr;
+
+// 初始化互斥锁
+void initRS485Mutex() {
+    rs485Mutex = xSemaphoreCreateMutex();
+    if (rs485Mutex == nullptr) {
+        printf("Failed to create RS485 mutex\n");
+    }
+}
 
 void uart_init_rs485() {
     uart_config_t uart_config = {
@@ -21,6 +34,7 @@ void uart_init_rs485() {
 
     ESP_ERROR_CHECK(uart_set_mode(RS485_UART_PORT, UART_MODE_RS485_HALF_DUPLEX));
 
+    initRS485Mutex();
     ESP_LOGI(TAG, "RS485 UART Initialized");
 
     xTaskCreate([] (void* param) {
@@ -68,16 +82,24 @@ void uart_init_rs485() {
 
         free(data);
         vTaskDelete(NULL);
-    }, "485Receive task", 8192, NULL, 3, NULL);
+    }, "485Receive task", 8192, NULL, 7, NULL);
 }
 
 void sendRS485CMD(const std::vector<uint8_t>& data) {
-    uart_write_bytes(RS485_UART_PORT, reinterpret_cast<const char*>(data.data()), data.size());
-    printf("RS485 发送: ");
-    for (int i = 0; i < data.size(); ++i) {
-        printf("%02X ", data[i]);
+    if (xSemaphoreTake(rs485Mutex, portMAX_DELAY) == pdTRUE) {
+        uart_write_bytes(RS485_UART_PORT, reinterpret_cast<const char*>(data.data()), data.size());
+        printf("RS485 发送: ");
+        for (size_t i = 0; i < data.size(); ++i) {
+            printf("%02X ", data[i]);
+        }
+        printf("\n");
+
+        // 100ms是很好的数值了, 80就不行了
+        vTaskDelay(100 / portTICK_PERIOD_MS);
+        xSemaphoreGive(rs485Mutex);
+    } else {
+        printf("Failed to acquire RS485 mutex\n");
     }
-    printf("\n");
 }
 
 std::vector<uint8_t> pavectorseHexToFixedArray(const std::string& hexString) {

@@ -1,19 +1,14 @@
 #include "curtain.h"
 
-void Curtain::executeAction(const std::string& operation, const std::variant<int, nullptr_t>& parameter,
-                            PanelButton* source_button) {
-    if (operation == "开") {
-        this->open_button = source_button;
+void Curtain::execute(std::string operation, int parameter) {
+    if (operation == "打开") {
         handleOpenAction();
-    } else if (operation == "关") {
-        this->close_button = source_button;
+    } else if (operation == "关闭") {
         handleCloseAction();
     } else if (operation == "反转") {
-        this->reverse_button = source_button;
         handleReverseAction();
     }
 }
-
 
 void Curtain::handleOpenAction() {
     action_button = open_button;
@@ -25,7 +20,7 @@ void Curtain::handleOpenAction() {
         return;
     } else if (state == State::CLOSED || state == State::STOPPED) {
         printf("开始打开[%s]...\n", name.c_str());
-        startAction(channel_open, State::OPENING, action_button);
+        startAction(output_open, State::OPENING, action_button);
         last_action = LastAction::OPENING;
     } else if (state == State::OPENING) {
         printf("停止打开[%s]\n", name.c_str());
@@ -33,12 +28,12 @@ void Curtain::handleOpenAction() {
     } else if (state == State::CLOSING) {
         printf("停止关闭, 开始打开[%s]\n", name.c_str());
         // 熄灭“窗帘关”按钮的指示灯
-        if (close_button) {
+        if (close_button.lock()) {
             updateButtonIndicator(close_button, false);
         }
         stopCurrentAction();
-        vTaskDelay(100 / portTICK_PERIOD_MS);   // 慢点发
-        startAction(channel_open, State::OPENING, action_button);
+        // vTaskDelay(120 / portTICK_PERIOD_MS);   // 慢点发
+        startAction(output_open, State::OPENING, action_button);
         last_action = LastAction::OPENING;
     }
 }
@@ -53,7 +48,7 @@ void Curtain::handleCloseAction() {
         return;
     } else if (state == State::OPEN || state == State::STOPPED) {
         printf("开始关闭[%s]...\n", name.c_str());
-        startAction(channel_close, State::CLOSING, action_button);
+        startAction(output_close, State::CLOSING, action_button);
         last_action = LastAction::CLOSING;
     } else if (state == State::CLOSING) {
         printf("停止关闭[%s]\n", name.c_str());
@@ -61,12 +56,12 @@ void Curtain::handleCloseAction() {
     } else if (state == State::OPENING) {
         printf("停止打开, 开始关闭[%s]\n", name.c_str());
         // 熄灭“窗帘开”按钮的指示灯
-        if (open_button) {
+        if (open_button.lock()) {
             updateButtonIndicator(open_button, false);
         }
         stopCurrentAction();
-        vTaskDelay(100 / portTICK_PERIOD_MS);   // 慢点发
-        startAction(channel_close, State::CLOSING, action_button);
+        // vTaskDelay(120 / portTICK_PERIOD_MS);   // 慢点发
+        startAction(output_close, State::CLOSING, action_button);
         last_action = LastAction::CLOSING;
     }
 }
@@ -75,7 +70,7 @@ void Curtain::handleReverseAction() {
     if (state == State::CLOSED) {
         // 当前是关闭状态，开始打开
         printf("开始打开[%s]...\n", name.c_str());
-        startAction(channel_open, State::OPENING, reverse_button);
+        startAction(output_open, State::OPENING, reverse_button);
         last_action = LastAction::OPENING;
     } else if (state == State::OPENING) {
         // 正在打开，停止打开
@@ -87,12 +82,12 @@ void Curtain::handleReverseAction() {
         if (last_action == LastAction::OPENING) {
             // 上一次是打开，反转为关闭
             printf("开始关闭[%s]...\n", name.c_str());
-            startAction(channel_close, State::CLOSING, reverse_button);
+            startAction(output_close, State::CLOSING, reverse_button);
             last_action = LastAction::CLOSING;
         } else {
             // 上一次是关闭或未定义，开始打开
             printf("开始打开[%s]...\n", name.c_str());
-            startAction(channel_open, State::OPENING, reverse_button);
+            startAction(output_open, State::OPENING, reverse_button);
             last_action = LastAction::OPENING;
         }
     } else if (state == State::CLOSING) {
@@ -103,13 +98,13 @@ void Curtain::handleReverseAction() {
     } else if (state == State::OPEN) {
         // 当前是打开状态，开始关闭
         printf("开始关闭[%s]...\n", name.c_str());
-        startAction(channel_close, State::CLOSING, reverse_button);
+        startAction(output_close, State::CLOSING, reverse_button);
         last_action = LastAction::CLOSING;
     }
 }
 
-void Curtain::startAction(std::shared_ptr<BoardOutput> channel, State newState, PanelButton* action_button) {
-    channel->executeAction("开", nullptr, nullptr);
+void Curtain::startAction(std::shared_ptr<BoardOutput> output, State newState, std::weak_ptr<PanelButton> action_button) {
+    output->connect();
     state = newState;
 
     if (actionTaskHandle != nullptr) {
@@ -135,9 +130,9 @@ void Curtain::startAction(std::shared_ptr<BoardOutput> channel, State newState, 
 
 void Curtain::stopCurrentAction() { 
     if (state == State::OPENING) {
-        channel_open->executeAction("关", nullptr, nullptr);
+        output_open->disconnect();
     } else if (state == State::CLOSING) {
-        channel_close->executeAction("关", nullptr, nullptr);
+        output_close->disconnect();
     }
     state = State::STOPPED;
 
@@ -148,7 +143,7 @@ void Curtain::stopCurrentAction() {
     }
 
     // 熄灭指示灯
-    if (action_button) {
+    if (action_button.lock()) {
         updateButtonIndicator(action_button, false);
     }
 }
@@ -156,20 +151,20 @@ void Curtain::stopCurrentAction() {
 void Curtain::completeAction() {
     if (state == State::OPENING) {
         printf("[%s]已打开\n", name.c_str());
-        channel_open->executeAction("关", nullptr, nullptr);
+        output_open->disconnect();
         state = State::OPEN;
         // 熄灭指示灯
-        if (action_button) {
+        if (action_button.lock()) {
             updateButtonIndicator(action_button, false);
         }
         // 重置 last_action
         last_action = LastAction::NONE;
     } else if (state == State::CLOSING) {
         printf("[%s]已关闭\n", name.c_str());
-        channel_close->executeAction("关", nullptr, nullptr);
+        output_close->disconnect();
         state = State::CLOSED;
         // 熄灭指示灯
-        if (action_button) {
+        if (action_button.lock()) {
             updateButtonIndicator(action_button, false);
         }
         // 重置 last_action
@@ -180,11 +175,12 @@ void Curtain::completeAction() {
     actionTaskHandle = nullptr;
 }
 
-void Curtain::updateButtonIndicator(PanelButton* button, bool state) {
-    if (button) {
-        auto panel = button->host_panel.lock();
+void Curtain::updateButtonIndicator(std::weak_ptr<PanelButton> button, bool state) {
+    auto button_ptr = button.lock();
+    if (button_ptr) {
+        auto panel = button_ptr->host_panel.lock();
         if (panel) {
-            panel->set_button_bl_state(button->id, state);
+            panel->set_button_bl_state(button_ptr->id, state);
             panel->publish_bl_state();
         }
     }

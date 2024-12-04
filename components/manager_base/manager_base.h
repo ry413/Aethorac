@@ -3,6 +3,7 @@
 
 #include <variant>
 #include <mutex>
+#include <vector>
 #include <unordered_map>
 #include <memory>
 
@@ -64,13 +65,83 @@ private:
 };
 
 class PanelButton;      // 前向声明
+class BoardOutput;
 
-class IActionTarget {
+
+class AssociatedButton {
 public:
-    virtual ~IActionTarget() = default;
-    virtual void executeAction(const std::string& operation,
-                               const std::variant<int, nullptr_t>& parameter,
-                               PanelButton* source_button) = 0;
+    uint8_t panel_id;
+    uint8_t button_id;
+
+    AssociatedButton(uint8_t panel_id, uint8_t button_id)
+        : panel_id(panel_id), button_id(button_id) {}
+};
+
+// 所有设备的基类
+class IDevice {
+public:
+    std::string name;
+    uint16_t uid;
+    std::vector<AssociatedButton> associated_buttons;
+
+    virtual ~IDevice() = default;
+
+    virtual void execute(std::string operation, int parameter) = 0;
+};
+
+// 管理所有设备
+class DeviceManager : public SingletonManager<DeviceManager> {
+public:
+    void addItem(const uint16_t& id, std::shared_ptr<IDevice> item) {
+        std::lock_guard<std::mutex> lock(map_mutex);
+        resource_map[id] = item;
+    }
+
+    std::shared_ptr<IDevice> getItem(const uint16_t& id) const {
+        std::lock_guard<std::mutex> lock(map_mutex);
+        auto it = resource_map.find(id);
+        return (it != resource_map.end()) ? it->second : nullptr;
+    }
+
+    void removeItem(const uint16_t& id) {
+        std::lock_guard<std::mutex> lock(map_mutex);
+        resource_map.erase(id);
+    }
+
+    const std::unordered_map<uint16_t, std::shared_ptr<IDevice>>& getAllItems() const {
+        std::lock_guard<std::mutex> lock(map_mutex);
+        return resource_map;
+    }
+
+    // 返回所有特定类型的设备
+    template <typename T>
+    std::vector<std::shared_ptr<T>> getDevicesOfType() const {
+        static_assert(std::is_base_of<IDevice, T>::value, "T must derive from IDevice");
+
+        std::vector<std::shared_ptr<T>> devices;
+        std::lock_guard<std::mutex> lock(map_mutex);
+        
+        for (const auto& [id, device] : resource_map) {
+            if (auto casted = std::dynamic_pointer_cast<T>(device)) {
+                devices.push_back(casted);
+            }
+        }
+        return devices;
+    }
+
+    void clear() {
+        std::lock_guard<std::mutex> lock(map_mutex);
+        resource_map.clear();
+    }
+
+protected:
+    DeviceManager() = default;
+    ~DeviceManager() = default;
+
+private:
+    friend class SingletonManager<DeviceManager>;
+    mutable std::mutex map_mutex;
+    std::unordered_map<uint16_t, std::shared_ptr<IDevice>> resource_map;
 };
 
 #endif // MANAGER_BASE_H

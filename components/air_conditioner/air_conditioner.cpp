@@ -8,5 +8,5 @@
 
 #include "air_conditioner.h"
 
-void AirConBase::executeAction(const std::string& operation, const std::variant<int, nullptr_t>& parameter,
-                               PanelButton* source_button) {}
+// void AirConBase::executeAction(const std::string& operation, const std::variant<int, nullptr_t>& parameter,
+//                                PanelButton* source_button) {}

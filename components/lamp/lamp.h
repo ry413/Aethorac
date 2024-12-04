@@ -7,21 +7,16 @@
 
 class BoardOutput;
 
-class Lamp : public IActionTarget {
+class Lamp : public IDevice {
 public:
-    uint16_t uid;
     LampType type;
-    std::string name;
-    std::shared_ptr<BoardOutput> channel_power;
+    std::shared_ptr<BoardOutput> output;
+    void execute(std::string operation, int parameter) override;
 
-    void executeAction(const std::string& operation, const std::variant<int, nullptr_t>& parameter,
-                       PanelButton* source_button) override;
-};
-
-class LampManager : public ResourceManager<uint16_t, Lamp, LampManager> {
-    friend class SingletonManager<LampManager>;
 private:
-    LampManager() = default;
-};
+    enum class State { OFF, ON };
+    State current_state = State::OFF;
 
+    void updateButtonIndicator(bool state);
+};
 #endif // LAMP_H

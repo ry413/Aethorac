@@ -1,16 +1,16 @@
 #include "panel.h"
+#include "esp_log.h"
 
 #define TAG "PANEL"
 
 void PanelButton::press() {
-    // 还真要检查, 防止动作组列表是空的
-    if (current_index < action_group_list.size()) {
-        action_group_list[current_index]->execute(this);
+    if (current_index < action_groups.size()) {
+        action_groups[current_index].executeAllAtomicAction();
 
         // 执行指示灯策略
         execute_polit_actions(current_index);
 
-        current_index = (current_index + 1) % action_group_list.size();
+        current_index = (current_index + 1) % action_groups.size();
     }
 }
 
@@ -21,8 +21,8 @@ void PanelButton::execute_polit_actions(uint8_t index) {
     }
 
     // 处理本按钮的指示灯行为
-    if (index < pressed_polit_actions.size()) {
-        ButtonPolitAction action = pressed_polit_actions[index];
+    if (index < action_groups.size()) {
+        ButtonPolitAction action = action_groups[index].pressed_polit_actions;
         switch (action) {
             case ButtonPolitAction::LIGHT_ON:
                 panel->set_button_bl_state(id, true);
@@ -42,8 +42,8 @@ void PanelButton::execute_polit_actions(uint8_t index) {
     }
 
     // 处理其他按钮的指示灯行为
-    if (index < pressed_other_polit_actions.size()) {
-        ButtonOtherPolitAction action = pressed_other_polit_actions[index];
+    if (index < action_groups.size()) {
+        ButtonOtherPolitAction action = action_groups[index].pressed_other_polit_actions;
         switch (action) {
             case ButtonOtherPolitAction::LIGHT_OFF:
                 panel->turn_off_other_buttons(id);
@@ -79,4 +79,15 @@ void Panel::turn_off_other_buttons(uint8_t exclude_button_id) {
 
 void Panel::publish_bl_state(void) {               // 第五位(0xFF)传什么都没事, 面板不在乎
     generate_response(CODE_SWITCH_WRITE, 0x00, id, 0xFF, get_button_bl_states());
+}
+
+void PanelButtonActionGroup::executeAllAtomicAction(void) {
+    for (const auto& atomic_action : atomic_actions) {
+        auto target_ptr = atomic_action.target_device.lock();
+        if (target_ptr) {
+            target_ptr->execute(atomic_action.operation, atomic_action.parameter);
+        } else {
+            ESP_LOGE(TAG, "target不存在");
+        }
+    }
 }

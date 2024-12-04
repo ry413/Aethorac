@@ -6,21 +6,35 @@
 #include <vector>
 #include "../config_structs/config_structs.h"
 #include "../manager_base/manager_base.h"
-#include "../action_group/action_group.h"
 #include "../rs485/rs485.h"
 
 class Panel;
-class ActionGroup;
+
+// 最原子级的一条操作, 某种意义上
+class AtomicAction {
+public:
+    std::weak_ptr<IDevice> target_device;       // 本操作的目标设备
+    std::string operation;                      // 操作名, 直接交由某个设备处理
+    int parameter;                              // 有什么是数字不能表示的呢
+};
+
+// 按钮的动作组类, 一个按钮拥有许多动作组, 每次按下时执行一个动作组, 循环的
+class PanelButtonActionGroup {
+public:
+    // 一个动作组里有多条原子动作, 在按下按钮时会一并执行
+    std::vector<AtomicAction> atomic_actions;
+    ButtonPolitAction pressed_polit_actions;
+    ButtonOtherPolitAction pressed_other_polit_actions;
+
+    // 执行atomic_actions里所有动作
+    void executeAllAtomicAction(void);
+};
 
 class PanelButton : std::enable_shared_from_this<PanelButton> {
 public:
     uint8_t id;
-    std::weak_ptr<Panel> host_panel;   // 指向所在的面板
-
-    // 这三个vector长度相同, 一一对应
-    std::vector<std::shared_ptr<ActionGroup>> action_group_list;
-    std::vector<ButtonPolitAction> pressed_polit_actions;               // 执行完一个动作组后, 本按钮的指示灯的行为
-    std::vector<ButtonOtherPolitAction> pressed_other_polit_actions;    // 同时, 所有其他按钮的行为
+    std::weak_ptr<Panel> host_panel;        // 指向本按钮所在的面板
+    std::vector<PanelButtonActionGroup> action_groups; // 此按钮所拥有的所有动作组
 
     // 按下按钮
     void press();

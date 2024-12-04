@@ -12,16 +12,16 @@
 #include "../panel/panel.h"
 
 // 一个输出通道
-class BoardOutput : public IActionTarget {
+class BoardOutput {
 public:
     uint8_t host_board_id;
     OutputType type;
     uint8_t channel;
     uint16_t uid;
 
-    void executeAction(const std::string& operation, 
-                       const std::variant<int, nullptr_t>& parameter,
-                       PanelButton* source_button) override;
+    // 闭合与断开电路
+    void connect();
+    void disconnect();
 };
 
 // 一个输入通道
