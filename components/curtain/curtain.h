@@ -23,10 +23,10 @@ public:
         }
     }
 
-    std::weak_ptr<PanelButton> reverse_button;// 关联的按钮, "反转"与"开/关"只会同时存在一种组合
+    std::vector<std::weak_ptr<PanelButton>> reverse_buttons;// 关联的按钮, "反转"与"开/关"只会同时存在一种组合
 
-    std::weak_ptr<PanelButton> open_button;
-    std::weak_ptr<PanelButton> close_button;
+    std::vector<std::weak_ptr<PanelButton>> open_buttons;
+    std::vector<std::weak_ptr<PanelButton>> close_buttons;
 
 private:
     enum class State { CLOSED, OPEN, OPENING, CLOSING, STOPPED };   // 通常使用的"开/关"控制用的状态
@@ -36,7 +36,7 @@ private:
     LastAction last_action = LastAction::NONE;
 
 
-    std::weak_ptr<PanelButton> action_button;               // 当前动作的按钮（开、关或反转）
+    std::vector<std::weak_ptr<PanelButton>> action_buttons;               // 当前动作的按钮（开、关或反转）
 
 
     TaskHandle_t actionTaskHandle = nullptr;  // 任务句柄
@@ -51,7 +51,7 @@ private:
     void handleReverseAction();
 
     // 打开操作对应的继电器
-    void startAction(std::shared_ptr<BoardOutput> channel, State newState, std::weak_ptr<PanelButton> action_button);
+    void startAction(std::shared_ptr<BoardOutput> channel, State newState, const std::vector<std::weak_ptr<PanelButton>>& action_button);
 
     // 停止此时的动作的继电器
     void stopCurrentAction();
@@ -59,6 +59,6 @@ private:
     // 成功打开/关闭窗帘, 关闭对应继电器, 并熄灭来源按钮的指示灯
     void completeAction();
 
-    void updateButtonIndicator(std::weak_ptr<PanelButton> button, bool state);
+    void updateButtonIndicator(const std::vector<std::weak_ptr<PanelButton>>& button, bool state);
 };
 #endif // CURTAIN_H

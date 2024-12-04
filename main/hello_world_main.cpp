@@ -350,11 +350,14 @@ void parseJson(const std::string& json_str) {
                 // 遍历这个动作组的所有原子级动作
                 for (auto& atomic_action : action_group.atomic_actions) {
                     if (atomic_action.operation == "打开") {
-                        curtain->open_button = panel_button;
+                        printf("1\n");
+                        curtain->open_buttons.push_back(panel_button);
                     } else if (atomic_action.operation == "关闭") {
-                        curtain->close_button = panel_button;
+                        printf("2\n");
+                        curtain->close_buttons.push_back(panel_button);
                     } else if (atomic_action.operation == "反转") {
-                        curtain->reverse_button = panel_button;
+                        printf("3\n");
+                        curtain->reverse_buttons.push_back(panel_button);
                     }
                 }
             }
