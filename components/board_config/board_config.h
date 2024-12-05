@@ -22,15 +22,35 @@ public:
     // 闭合与断开电路
     void connect();
     void disconnect();
+    void reverse();
+
+private:
+    enum class State { CONNECTED, DISCONNECTED };
+    State current_state = State::DISCONNECTED;
+
 };
 
-// 一个输入通道
+class InputActionGroup {
+public:
+    std::vector<AtomicAction> atomic_actions;
+
+    void executeAllAtomicAction(void);
+};
+
+// 一个输入通道, 它与PanelButton算同级, 或者说同类
 class BoardInput {
 public:
     uint8_t host_board_id;
     uint8_t channel;
     InputLevel level;
-    uint16_t action_group_uid;
+
+    std::vector<InputActionGroup> action_groups;
+
+    // 执行本输入的逻辑
+    void execute();
+
+private:
+    uint8_t current_index = 0;  // 此时按下会执行第几个动作组
 };
 
 // 一整个板子

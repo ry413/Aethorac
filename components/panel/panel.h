@@ -33,6 +33,7 @@ public:
     void executeAllAtomicAction(void);
 };
 
+// 一个面板的按钮, 它与BoardInput算同级, 或者说同类
 class PanelButton : std::enable_shared_from_this<PanelButton> {
 public:
     uint8_t id;
@@ -55,7 +56,7 @@ public:
 }
 
 private:
-    uint8_t current_index = 0;      // 此时按下会执行第几个动作
+    uint8_t current_index = 0;      // 此时按下会执行第几个动作组
     
     TimerHandle_t light_off_timer = nullptr; // 定时器句柄
     static void light_off_timer_callback(TimerHandle_t xTimer);
@@ -84,6 +85,9 @@ public:
 
     // 熄灭除指定按钮外的所有按钮的指示灯
     void turn_off_other_buttons(uint8_t exclude_button_id);
+
+    // 熄灭所有指示灯
+    void turn_off_all_buttons();
 
     // 终端函数, 发送指令更新面板状态
     void publish_bl_state(void);

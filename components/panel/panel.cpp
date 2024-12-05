@@ -1,9 +1,13 @@
 #include "panel.h"
 #include "esp_log.h"
+#include "../rs485/rs485.h"
 
 #define TAG "PANEL"
 
 void PanelButton::press() {
+    // 只要按下按钮, 就唤醒, 所以如果有睡眠指令的话, 会在这之后
+    wakeup_heartbeat();
+
     if (current_index < action_groups.size()) {
         action_groups[current_index].executeAllAtomicAction();
 
@@ -116,6 +120,10 @@ void Panel::turn_off_other_buttons(uint8_t exclude_button_id) {
     uint8_t bl_states = get_button_bl_states();
     bl_states &= (1 << exclude_button_id);  // 保留指定按钮的状态，其余清零
     set_button_bl_states(bl_states);
+}
+
+void Panel::turn_off_all_buttons() {
+    set_button_bl_states(0);
 }
 
 void Panel::publish_bl_state(void) {               // 第五位(0xFF)传什么都没事, 面板不在乎

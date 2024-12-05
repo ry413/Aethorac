@@ -27,10 +27,18 @@ void sendRS485CMD(const std::vector<uint8_t>& data);
 void handle_rs485_data(uint8_t* data, int length);
 void generate_response(uint8_t param1, uint8_t param2, uint8_t param3, uint8_t param4, uint8_t param5);
 
-
 // 将指令码字符串解析成array
 std::vector<uint8_t> pavectorseHexToFixedArray(const std::string& hexString);
 
+// 心跳包
+extern std::vector<uint8_t> heartbeat_code;
+// 进入醒来的心跳
+void wakeup_heartbeat();
+// 睡觉
+void sleep_heartbeat();
+
+
+// 485设备, 实际上这个算是一个设备
 class RS485Command : public IDevice {
 public:
     std::vector<uint8_t> code;

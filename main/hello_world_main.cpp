@@ -25,6 +25,7 @@ extern "C" {
 #include "delay_action.h"
 #include "curtain.h"
 #include "wifi.h"
+#include "../components/other_device/other_device.h"
 #include "lwip/sockets.h"
 
 #define PORT 8080
@@ -136,7 +137,29 @@ void parseJson(const std::string& json_str) {
                     input.host_board_id = input_item["hostBoardId"].GetUint();
                     input.channel = input_item["channel"].GetUint();
                     input.level = static_cast<InputLevel>(input_item["level"].GetInt());
-                    input.action_group_uid = input_item["actionGroupUid"].GetUint();
+
+                    if (input_item.HasMember("actionGroups") && input_item["actionGroups"].IsArray()) {
+                        const rapidjson::Value& action_groups = input_item["actionGroups"];
+                        for (rapidjson::SizeType k = 0; k < action_groups.Size(); ++k) {
+                            const rapidjson::Value& action_group_item = action_groups[k];
+                            InputActionGroup action_group;
+
+                            if (action_group_item.HasMember("atomicActions") && action_group_item["atomicActions"].IsArray()) {
+                                const rapidjson::Value& atomic_actions = action_group_item["atomicActions"];
+                                for (rapidjson::SizeType l = 0; l < atomic_actions.Size(); ++l) {
+                                    const rapidjson::Value& atomic_action_item = atomic_actions[l];
+                                    AtomicAction atomic_action;
+                                    atomic_action.target_device = DeviceManager::getInstance().getItem(atomic_action_item["deviceUid"].GetUint());
+                                    atomic_action.operation = atomic_action_item["operation"].GetString();
+                                    atomic_action.parameter = atomic_action_item["parameter"].GetInt();
+
+                                    action_group.atomic_actions.push_back(atomic_action);
+                                }
+                            }
+                            input.action_groups.push_back(action_group);
+                        }
+                    }
+                    
                     board->inputs.push_back(input);
                 }
             }
@@ -275,7 +298,7 @@ void parseJson(const std::string& json_str) {
         }
     }
 
-    // ESP_LOGI(TAG, "解析 RS485 配置");
+    ESP_LOGI(TAG, "解析 RS485 配置");
     // ****************** RS485指令码 ******************
     if (json_data.HasMember("485指令码列表") && json_data["485指令码列表"].IsArray()) {
         const rapidjson::Value& command_list = json_data["485指令码列表"];
@@ -289,6 +312,36 @@ void parseJson(const std::string& json_str) {
             // 这玩意拿关联按钮干什么?
 
             DeviceManager::getInstance().addItem(command->uid, command);
+        }
+    }
+
+    ESP_LOGI(TAG, "解析 其他设备 配置");
+    // ****************** 其他设备 ******************
+    if (json_data.HasMember("其他设备列表") && json_data["其他设备列表"].IsArray()) {
+        const rapidjson::Value& device_list = json_data["其他设备列表"];
+        for (rapidjson::SizeType i = 0; i < device_list.Size(); ++i) {
+            const rapidjson::Value& item = device_list[i];
+            auto device = std::make_shared<OtherDevice>();
+            device->uid = item["uid"].GetUint();
+            device->type = static_cast<OtherDeviceType>(item["type"].GetInt());
+            device->name = item["name"].GetString();
+            if (device->type == OtherDeviceType::OUTPUT_CONTROL) {
+                device->output = BoardManager::getInstance().getBoardOutput(
+                        item["outputUid"].GetUint());
+            }
+
+            // 解析关联按钮
+            if (item.HasMember("associatedButtons") && item["associatedButtons"].IsArray()) {
+                const rapidjson::Value& buttons = item["associatedButtons"];
+                for (rapidjson::SizeType j = 0; j < buttons.Size(); ++j) {
+                    const rapidjson::Value& btn_item = buttons[j];
+                    uint8_t panel_id = btn_item["panelId"].GetUint();
+                    uint8_t button_id = btn_item["buttonId"].GetUint();
+
+                    device->associated_buttons.push_back(AssociatedButton(panel_id, button_id));
+                }
+            }
+            DeviceManager::getInstance().addItem(device->uid, device);
         }
     }
 

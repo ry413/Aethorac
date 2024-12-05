@@ -27,6 +27,12 @@ enum class LampType {
     DIMMABLE_LIGHT
 };
 
+// ****************** 其他设备 ******************
+enum class OtherDeviceType {
+    OUTPUT_CONTROL,
+    HEARTBEAT_STATE
+};
+
 // ****************** 空调 ******************
 enum class ACWindSpeed : uint8_t {
     LOW,

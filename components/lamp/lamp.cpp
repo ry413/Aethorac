@@ -14,12 +14,12 @@ void Lamp::execute(std::string operation, int parameter) {
         current_state = State::OFF;
         updateButtonIndicator(false);
     } else if (operation == "反转") {
+        output->reverse();
+        
         if (current_state == State::ON) {
-            output->disconnect();
             current_state = State::OFF;
             updateButtonIndicator(false);
         } else {
-            output->connect();
             current_state = State::ON;
             updateButtonIndicator(true);
         }

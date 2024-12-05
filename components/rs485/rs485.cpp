@@ -4,8 +4,11 @@
 #include <string>
 #include "panel.h"
 #include "esp_log.h"
+#include "../board_config/board_config.h"
 
 #define TAG "RS485"
+
+std::vector<uint8_t> heartbeat_code;
 
 // 定义互斥锁
 static SemaphoreHandle_t rs485Mutex = nullptr;
@@ -38,12 +41,14 @@ void uart_init_rs485() {
     ESP_LOGI(TAG, "RS485 UART Initialized");
 
     xTaskCreate([] (void* param) {
-        std::vector<uint8_t> alive_code = pavectorseHexToFixedArray("7FC0FFFF0080BD7E");
+        // 初始使用正常的存活心跳
+        wakeup_heartbeat();
+
         while (true) {
-            // sendRS485CMD(alive_code);   //     不用这个, 否则会一直刷屏
+            // sendRS485CMD(heartbeat_code);   //     不用这个, 否则会一直刷屏
             
             if (xSemaphoreTake(rs485Mutex, portMAX_DELAY) == pdTRUE) {
-                uart_write_bytes(RS485_UART_PORT, reinterpret_cast<const char*>(alive_code.data()), alive_code.size());
+                uart_write_bytes(RS485_UART_PORT, reinterpret_cast<const char*>(heartbeat_code.data()), heartbeat_code.size());
                 vTaskDelay(100 / portTICK_PERIOD_MS);
                 xSemaphoreGive(rs485Mutex);
                 vTaskDelay(100 / portTICK_PERIOD_MS);
@@ -126,6 +131,15 @@ std::vector<uint8_t> pavectorseHexToFixedArray(const std::string& hexString) {
     return result;
 }
 
+void wakeup_heartbeat() {
+    heartbeat_code = pavectorseHexToFixedArray("7FC0FFFF0080BD7E");
+}
+
+void sleep_heartbeat() {
+    ESP_LOGI(TAG, "进入睡眠");
+    heartbeat_code = pavectorseHexToFixedArray("7FC0FFFF00003D7E");
+}
+
 uint8_t calculate_checksum(const std::vector<uint8_t>& data) {
     uint8_t checksum = 0;
     for (size_t i = 0; i < 6; ++i) {
@@ -136,10 +150,12 @@ uint8_t calculate_checksum(const std::vector<uint8_t>& data) {
 
 // 终极处理函数
 void handle_rs485_data(uint8_t* data, int length) {
-    // if (length != 8) {
-    //     ESP_LOGE(TAG, "错误的指令长度: %d", length);
-    //     return;
-    // }
+    if (length != 8) {
+        ESP_LOGE(TAG, "错误的指令长度: %d", length);
+        return;
+    }
+    
+    // 因为现在stm32那边也走485, 所以先不判断头尾
 
     // if (data[0] != RS485_FRAME_HEADER) {
     //     ESP_LOGE(TAG, "错误的帧头: %d", data[0]);
@@ -206,7 +222,41 @@ void handle_rs485_data(uint8_t* data, int length) {
         // panel->publish_bl_state();
         
     }
-    // else if
+    // data[0] = 0x79;
+    // data[1] = 0x07;
+    // data[2] = 0x00;
+    // data[3] = 0x02;
+    // data[4] = 0x01;
+    // data[5] = 0x00;
+    // data[6] = 0x83;
+    // data[7] = 0x7C;
+    // 临时的stm32. 干接点输入
+    else if (data[1] == 0x07) {
+        uint8_t board_id = data[2];
+        uint8_t channel_num = data[3];
+        uint8_t state = data[4];    // 
+
+        InputLevel input_level;
+        // 通道闭合
+        if (state == 0x01) {
+            input_level = InputLevel::HIGH;
+        }
+        // 通道断开
+        else if (state == 0x00) {
+            input_level = InputLevel::LOW;
+        }
+
+        // 遍历所有指定通道的BoardInput, 也就是说, 有可能有多个channel不同的BoardInput, 这里要执行所有同为指定通道的
+        auto& all_boards = BoardManager::getInstance().getAllItems();
+        for (const auto& [board_id, board] : all_boards) {
+            auto& inputs = board->inputs;
+            for (auto& input : inputs) {
+                if (input.channel == channel_num && input.level == input_level) {
+                    input.execute();
+                }
+            }
+        }    
+    }
 }
 
 void generate_response(uint8_t param1, uint8_t param2, uint8_t param3, uint8_t param4, uint8_t param5) {

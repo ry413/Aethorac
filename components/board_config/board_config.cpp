@@ -5,6 +5,8 @@
 extern "C" {
     #include "string.h"
 }
+#include "../rs485/rs485.h"
+
 #define TAG "BOARD_CONFIG"
 
 static void sendRS485CMDByFrame(uart_frame_t frame) {
@@ -35,19 +37,60 @@ std::shared_ptr<BoardOutput> BoardManager::getBoardOutput(uint16_t uid) {
 void BoardOutput::connect() {
     uart_frame_t frame;
     uint8_t cmd_type = 0x01;
+    if (type == OutputType::RELAY) {
+        cmd_type = 0x01;
+    } else if (type == OutputType::DRY_CONTACT) {
+        cmd_type = 0x05;
+    }
     uint8_t param1 = 0x01;
 
     build_frame(cmd_type, host_board_id, channel, param1, 0x00, &frame);
     sendRS485CMDByFrame(frame);
+    current_state = State::CONNECTED;
     ESP_LOGI(TAG, "板%d 通道%d 已闭合", host_board_id, channel);
 }
 
 void BoardOutput::disconnect() {
     uart_frame_t frame;
     uint8_t cmd_type = 0x01;
+    if (type == OutputType::RELAY) {
+        cmd_type = 0x01;
+    } else if (type == OutputType::DRY_CONTACT) {
+        cmd_type = 0x05;
+    }
     uint8_t param1 = 0x00;
 
     build_frame(cmd_type, host_board_id, channel, param1, 0x00, &frame);
     sendRS485CMDByFrame(frame);
+    current_state = State::DISCONNECTED;
     ESP_LOGI(TAG, "板%d 通道%d 已断开", host_board_id, channel);
+}
+
+void BoardOutput::reverse() {
+    if (current_state == State::CONNECTED) {
+        disconnect();
+    } else {
+        connect();
+    }
+}
+
+void InputActionGroup::executeAllAtomicAction(void) {
+    for (const auto& atomic_action : atomic_actions) {
+        auto target_ptr = atomic_action.target_device.lock();
+        if (target_ptr) {
+            target_ptr->execute(atomic_action.operation, atomic_action.parameter);
+        } else {
+            ESP_LOGE(TAG, "target不存在");
+        }
+    }
+}
+
+void BoardInput::execute() {
+    wakeup_heartbeat();
+
+    if (current_index < action_groups.size()) {
+        action_groups[current_index].executeAllAtomicAction();
+
+        current_index = (current_index + 1) % action_groups.size();
+    }
 }
