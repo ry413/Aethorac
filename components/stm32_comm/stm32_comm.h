@@ -8,8 +8,8 @@
 #define UART_RX_PIN 16
 #define UART_BAUD_RATE 115200
 
-#define FRAME_HEADER 0x55
-#define FRAME_FOOTER 0xAA
+#define FRAME_HEADER 0x79
+#define FRAME_FOOTER 0x5F
 
 typedef struct {
     uint8_t header;        // 帧头

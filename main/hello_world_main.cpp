@@ -276,18 +276,21 @@ void parseJson(const std::string& json_str) {
     }
 
     // ESP_LOGI(TAG, "解析 RS485 配置");
-    // // ****************** RS485指令码 ******************
-    // if (json_data.HasMember("485指令码列表") && json_data["485指令码列表"].IsArray()) {
-    //     const rapidjson::Value& command_list = json_data["485指令码列表"];
-    //     for (rapidjson::SizeType i = 0; i < command_list.Size(); ++i) {
-    //         const rapidjson::Value& item = command_list[i];
-    //         auto command = std::make_shared<RS485Command>();
-    //         command->uid = item["uid"].GetUint();
-    //         command->name = item["name"].GetString();
-    //         command->code = pavectorseHexToFixedArray(item["code"].GetString());
-    //         RS485Manager::getInstance().addItem(command->uid, command);
-    //     }
-    // }
+    // ****************** RS485指令码 ******************
+    if (json_data.HasMember("485指令码列表") && json_data["485指令码列表"].IsArray()) {
+        const rapidjson::Value& command_list = json_data["485指令码列表"];
+        for (rapidjson::SizeType i = 0; i < command_list.Size(); ++i) {
+            const rapidjson::Value& item = command_list[i];
+            auto command = std::make_shared<RS485Command>();
+            command->uid = item["uid"].GetUint();
+            command->name = item["name"].GetString();
+            command->code = pavectorseHexToFixedArray(item["code"].GetString());
+
+            // 这玩意拿关联按钮干什么?
+
+            DeviceManager::getInstance().addItem(command->uid, command);
+        }
+    }
 
     ESP_LOGI(TAG, "解析 面板 配置");
     // ****************** 面板 ******************
@@ -350,13 +353,10 @@ void parseJson(const std::string& json_str) {
                 // 遍历这个动作组的所有原子级动作
                 for (auto& atomic_action : action_group.atomic_actions) {
                     if (atomic_action.operation == "打开") {
-                        printf("1\n");
                         curtain->open_buttons.push_back(panel_button);
                     } else if (atomic_action.operation == "关闭") {
-                        printf("2\n");
                         curtain->close_buttons.push_back(panel_button);
                     } else if (atomic_action.operation == "反转") {
-                        printf("3\n");
                         curtain->reverse_buttons.push_back(panel_button);
                     }
                 }

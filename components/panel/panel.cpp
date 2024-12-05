@@ -26,32 +26,73 @@ void PanelButton::execute_polit_actions(uint8_t index) {
         switch (action) {
             case ButtonPolitAction::LIGHT_ON:
                 panel->set_button_bl_state(id, true);
+                panel->publish_bl_state();
                 break;
             case ButtonPolitAction::LIGHT_OFF:
                 panel->set_button_bl_state(id, false);
+                panel->publish_bl_state();
                 break;
             case ButtonPolitAction::LIGHT_SHORT:
                 panel->set_button_bl_state(id, true);
-                // 设置定时器，1秒后熄灭
-                // schedule_light_off(id, 1000);
+                panel->publish_bl_state();
+                // 1秒后熄灭
+                schedule_light_off(1000);
                 break;
             case ButtonPolitAction::IGNORE:
                 // 不做任何操作
                 break;
         }
     }
-
     // 处理其他按钮的指示灯行为
     if (index < action_groups.size()) {
         ButtonOtherPolitAction action = action_groups[index].pressed_other_polit_actions;
         switch (action) {
             case ButtonOtherPolitAction::LIGHT_OFF:
                 panel->turn_off_other_buttons(id);
+                panel->publish_bl_state();
                 break;
             case ButtonOtherPolitAction::IGNORE:
                 // 不做任何操作
                 break;
         }
+    }
+}
+
+void PanelButton::schedule_light_off(uint32_t delay_ms) {
+    if (light_off_timer == nullptr) {
+        // 创建新的定时器
+        light_off_timer = xTimerCreate(
+            "LightOffTimer",                        // 定时器名称
+            pdMS_TO_TICKS(delay_ms),                // 定时周期
+            pdFALSE,                                // 不自动重载
+            (void*)this,                            // 定时器 ID，传递当前对象指针
+            light_off_timer_callback                // 回调函数
+        );
+        if (light_off_timer == nullptr) {
+            ESP_LOGE(TAG, "Failed to create light_off_timer for button %d", id);
+            return;
+        }
+    } else {
+        // 如果定时器已存在，先停止定时器
+        xTimerStop(light_off_timer, 0);
+        // 更新定时器周期
+        xTimerChangePeriod(light_off_timer, pdMS_TO_TICKS(delay_ms), 0);
+    }
+    // 重置并启动定时器
+    xTimerReset(light_off_timer, 0);
+}
+
+void PanelButton::light_off_timer_callback(TimerHandle_t xTimer) {
+    // 获取 PanelButton 对象指针
+    PanelButton* button = static_cast<PanelButton*>(pvTimerGetTimerID(xTimer));
+    if (button != nullptr) {
+        auto panel = button->host_panel.lock();
+        if (panel) {
+            // 熄灭指示灯
+            panel->set_button_bl_state(button->id, false);
+            panel->publish_bl_state();
+        }
+        // 定时器是一次性的，无需删除或重置
     }
 }
 

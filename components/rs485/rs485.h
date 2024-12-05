@@ -26,31 +26,16 @@ uint8_t calculate_checksum(const std::vector<uint8_t>& data);
 void sendRS485CMD(const std::vector<uint8_t>& data);
 void handle_rs485_data(uint8_t* data, int length);
 void generate_response(uint8_t param1, uint8_t param2, uint8_t param3, uint8_t param4, uint8_t param5);
-void print_binary(uint8_t value);
-uint8_t find_zero_position(uint8_t input);
+
 
 // 将指令码字符串解析成array
 std::vector<uint8_t> pavectorseHexToFixedArray(const std::string& hexString);
 
-// class RS485Command : public IDevice {
-// public:
-//     uint16_t uid;
-//     std::string name;
-//     std::vector<uint8_t> code;
-
-//     void executeAction(const std::string& operation, const std::variant<int, nullptr_t>& parameter,
-//                        PanelButton* source_button) override {
-//         if (operation == "发送") {
-//             sendRS485CMD(code);
-//             printf("已发送指令码[%s]\n", name.c_str());
-//         }
-//     }
-// };
+class RS485Command : public IDevice {
+public:
+    std::vector<uint8_t> code;
+    void execute(std::string operation, int parameter) override;
+};
 
 
-// class RS485Manager : public ResourceManager<uint16_t, RS485Command, RS485Manager> {
-//     friend class SingletonManager<RS485Manager>;
-// private:
-//     RS485Manager() = default;
-// };
 #endif // RS485_CONFIG_H

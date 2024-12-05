@@ -40,9 +40,15 @@ void uart_init_rs485() {
     xTaskCreate([] (void* param) {
         std::vector<uint8_t> alive_code = pavectorseHexToFixedArray("7FC0FFFF0080BD7E");
         while (true) {
-            // sendRS485CMD(alive_code);     不用这个, 否则会一直刷屏
-            uart_write_bytes(RS485_UART_PORT, reinterpret_cast<const char*>(alive_code.data()), alive_code.size());
-            vTaskDelay(200 / portTICK_PERIOD_MS);
+            // sendRS485CMD(alive_code);   //     不用这个, 否则会一直刷屏
+            
+            if (xSemaphoreTake(rs485Mutex, portMAX_DELAY) == pdTRUE) {
+                uart_write_bytes(RS485_UART_PORT, reinterpret_cast<const char*>(alive_code.data()), alive_code.size());
+                vTaskDelay(100 / portTICK_PERIOD_MS);
+                xSemaphoreGive(rs485Mutex);
+                vTaskDelay(100 / portTICK_PERIOD_MS);
+            }
+            
             static int count = 0;
             // count++;
             // if (count > 50) {
@@ -130,20 +136,20 @@ uint8_t calculate_checksum(const std::vector<uint8_t>& data) {
 
 // 终极处理函数
 void handle_rs485_data(uint8_t* data, int length) {
-    if (length != 8) {
-        ESP_LOGE(TAG, "错误的指令长度: %d", length);
-        return;
-    }
+    // if (length != 8) {
+    //     ESP_LOGE(TAG, "错误的指令长度: %d", length);
+    //     return;
+    // }
 
-    if (data[0] != RS485_FRAME_HEADER) {
-        ESP_LOGE(TAG, "错误的帧头: %d", data[0]);
-        return;
-    }
+    // if (data[0] != RS485_FRAME_HEADER) {
+    //     ESP_LOGE(TAG, "错误的帧头: %d", data[0]);
+    //     return;
+    // }
 
-    if (data[7] != RS485_FRAME_FOOTER) {
-        ESP_LOGE(TAG, "错误的帧尾: %d", data[7]);
-        return;
-    }
+    // if (data[7] != RS485_FRAME_FOOTER) {
+    //     ESP_LOGE(TAG, "错误的帧尾: %d", data[7]);
+    //     return;
+    // }
 
     uint8_t checksum = calculate_checksum(std::vector<uint8_t>(data, data + 6));
     if (data[6] != checksum) {
@@ -219,17 +225,8 @@ void generate_response(uint8_t param1, uint8_t param2, uint8_t param3, uint8_t p
     sendRS485CMD(command);
 }
 
-// 打印二进制
-void print_binary(uint8_t value) {
-    for (int i = 7; i >= 0; i--) { // 从最高位到最低位
-        printf("%c", (value & (1 << i)) ? '1' : '0');
+void RS485Command::execute(std::string operation, int parameter) {
+    if (operation == "发送") {
+        sendRS485CMD(code);
     }
-}
-// 获得uint8_t从右开始数的唯一0的位置
-uint8_t find_zero_position(uint8_t input) {
-    // 按位取反, 让唯一的 0 变成 1
-    uint8_t inverted = ~input;
-
-    // 使用 __builtin_ffs 查找第一个 1 的位置
-    return __builtin_ffs(inverted); // 返回值从 1 开始计数
 }

@@ -7,6 +7,9 @@
 #include "../config_structs/config_structs.h"
 #include "../manager_base/manager_base.h"
 #include "../rs485/rs485.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/timers.h"
 
 class Panel;
 
@@ -41,10 +44,21 @@ public:
 
     // 执行指示灯策略
     void execute_polit_actions(uint8_t index);
+    void schedule_light_off(uint32_t delay_ms);
+
+    ~PanelButton() {
+    if (light_off_timer != nullptr) {
+        xTimerStop(light_off_timer, 0);
+        xTimerDelete(light_off_timer, 0);
+        light_off_timer = nullptr;
+    }
+}
 
 private:
     uint8_t current_index = 0;      // 此时按下会执行第几个动作
     
+    TimerHandle_t light_off_timer = nullptr; // 定时器句柄
+    static void light_off_timer_callback(TimerHandle_t xTimer);
 };
 
 class Panel {
