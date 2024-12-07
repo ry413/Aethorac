@@ -127,42 +127,6 @@ void parseJson(const std::string& json_str) {
                     board->outputs[output->uid] = output;
                 }
             }
-
-            ESP_LOGI(TAG, "解析 板 %d 输入列表", board->id);
-            if (item.HasMember("inputs") && item["inputs"].IsArray()) {
-                const rapidjson::Value& inputs = item["inputs"];
-                for (rapidjson::SizeType j = 0; j < inputs.Size(); ++j) {
-                    const rapidjson::Value& input_item = inputs[j];
-                    BoardInput input;
-                    input.host_board_id = input_item["hostBoardId"].GetUint();
-                    input.channel = input_item["channel"].GetUint();
-                    input.level = static_cast<InputLevel>(input_item["level"].GetInt());
-
-                    if (input_item.HasMember("actionGroups") && input_item["actionGroups"].IsArray()) {
-                        const rapidjson::Value& action_groups = input_item["actionGroups"];
-                        for (rapidjson::SizeType k = 0; k < action_groups.Size(); ++k) {
-                            const rapidjson::Value& action_group_item = action_groups[k];
-                            InputActionGroup action_group;
-
-                            if (action_group_item.HasMember("atomicActions") && action_group_item["atomicActions"].IsArray()) {
-                                const rapidjson::Value& atomic_actions = action_group_item["atomicActions"];
-                                for (rapidjson::SizeType l = 0; l < atomic_actions.Size(); ++l) {
-                                    const rapidjson::Value& atomic_action_item = atomic_actions[l];
-                                    AtomicAction atomic_action;
-                                    atomic_action.target_device = DeviceManager::getInstance().getItem(atomic_action_item["deviceUid"].GetUint());
-                                    atomic_action.operation = atomic_action_item["operation"].GetString();
-                                    atomic_action.parameter = atomic_action_item["parameter"].GetInt();
-
-                                    action_group.atomic_actions.push_back(atomic_action);
-                                }
-                            }
-                            input.action_groups.push_back(action_group);
-                        }
-                    }
-                    
-                    board->inputs.push_back(input);
-                }
-            }
             BoardManager::getInstance().addItem(board->id, board);
         }
     }
@@ -390,6 +354,53 @@ void parseJson(const std::string& json_str) {
                 }
             }
             PanelManager::getInstance().addItem(panel->id, panel);
+        }
+    }
+
+    // 到这一步再解析板子的输入配置, 因为现在才有设备实例存在
+    ESP_LOGI(TAG, "解析 板子 配置");
+    // ****************** 板子 ******************
+    if (json_data.HasMember("板子列表") && json_data["板子列表"].IsArray()) {
+        const rapidjson::Value& board_list = json_data["板子列表"];
+        for (rapidjson::SizeType i = 0; i < board_list.Size(); ++i) {
+            const rapidjson::Value& item = board_list[i];
+            // 重新根据json找到已存在的板子实例
+            std::shared_ptr<BoardConfig> board = BoardManager::getInstance().getItem(item["id"].GetUint());
+
+            ESP_LOGI(TAG, "解析 板 %d 输入列表", board->id);
+            if (item.HasMember("inputs") && item["inputs"].IsArray()) {
+                const rapidjson::Value& inputs = item["inputs"];
+                for (rapidjson::SizeType j = 0; j < inputs.Size(); ++j) {
+                    const rapidjson::Value& input_item = inputs[j];
+                    BoardInput input;
+                    input.host_board_id = input_item["hostBoardId"].GetUint();
+                    input.channel = input_item["channel"].GetUint();
+                    input.level = static_cast<InputLevel>(input_item["level"].GetInt());
+
+                    if (input_item.HasMember("actionGroups") && input_item["actionGroups"].IsArray()) {
+                        const rapidjson::Value& action_groups = input_item["actionGroups"];
+                        for (rapidjson::SizeType k = 0; k < action_groups.Size(); ++k) {
+                            const rapidjson::Value& action_group_item = action_groups[k];
+                            InputActionGroup action_group;
+
+                            if (action_group_item.HasMember("atomicActions") && action_group_item["atomicActions"].IsArray()) {
+                                const rapidjson::Value& atomic_actions = action_group_item["atomicActions"];
+                                for (rapidjson::SizeType l = 0; l < atomic_actions.Size(); ++l) {
+                                    const rapidjson::Value& atomic_action_item = atomic_actions[l];
+                                    AtomicAction atomic_action;
+                                    atomic_action.target_device = DeviceManager::getInstance().getItem(atomic_action_item["deviceUid"].GetUint());
+                                    atomic_action.operation = atomic_action_item["operation"].GetString();
+                                    atomic_action.parameter = atomic_action_item["parameter"].GetInt();
+                                    action_group.atomic_actions.push_back(atomic_action);
+                                }
+                            }
+                            input.action_groups.push_back(action_group);
+                        }
+                    }
+                    // 把输入添加到这个板子里就够了
+                    board->inputs.push_back(input);
+                }
+            }
         }
     }
 

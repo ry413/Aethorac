@@ -31,6 +31,12 @@ public:
 
     // 执行atomic_actions里所有动作
     void executeAllAtomicAction(void);
+
+
+    void clearTaskHandle();
+
+private:
+    TaskHandle_t task_handle = nullptr;
 };
 
 // 一个面板的按钮, 它与BoardInput算同级, 或者说同类

@@ -1,6 +1,7 @@
 #include "curtain.h"
 
 void Curtain::execute(std::string operation, int parameter) {
+    printf("窗帘[%s]收到操作[%s]\n", name.c_str(), operation.c_str());
     if (operation == "打开") {
         handleOpenAction();
     } else if (operation == "关闭") {

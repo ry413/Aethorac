@@ -106,7 +106,7 @@ void sendRS485CMD(const std::vector<uint8_t>& data) {
         printf("\n");
 
         // 100ms是很好的数值了, 80就不行了
-        vTaskDelay(100 / portTICK_PERIOD_MS);
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
         xSemaphoreGive(rs485Mutex);
     } else {
         printf("Failed to acquire RS485 mutex\n");
@@ -222,19 +222,12 @@ void handle_rs485_data(uint8_t* data, int length) {
         // panel->publish_bl_state();
         
     }
-    // data[0] = 0x79;
-    // data[1] = 0x07;
-    // data[2] = 0x00;
-    // data[3] = 0x02;
-    // data[4] = 0x01;
-    // data[5] = 0x00;
-    // data[6] = 0x83;
-    // data[7] = 0x7C;
     // 临时的stm32. 干接点输入
     else if (data[1] == 0x07) {
         uint8_t board_id = data[2];
         uint8_t channel_num = data[3];
         uint8_t state = data[4];    // 
+        // printf("干接点输入 0x%02x, 0x%02x, 0x%02x\n", board_id, channel_num, state);
 
         InputLevel input_level;
         // 通道闭合
@@ -242,17 +235,20 @@ void handle_rs485_data(uint8_t* data, int length) {
             input_level = InputLevel::HIGH;
         }
         // 通道断开
-        else if (state == 0x00) {
+        else {
             input_level = InputLevel::LOW;
         }
 
-        // 遍历所有指定通道的BoardInput, 也就是说, 有可能有多个channel不同的BoardInput, 这里要执行所有同为指定通道的
+        // 遍历所有指定通道的BoardInput, 也就是说, 有可能有多个channel不同的BoardInput, 这里要执行所有同为指定通道的输出
         auto& all_boards = BoardManager::getInstance().getAllItems();
         for (const auto& [board_id, board] : all_boards) {
             auto& inputs = board->inputs;
             for (auto& input : inputs) {
-                if (input.channel == channel_num && input.level == input_level) {
-                    input.execute();
+                if (input.channel == channel_num) {
+                    // 不过只执行指定电平的配置
+                    if (input.level == input_level) {
+                        input.execute();
+                    }
                 }
             }
         }    
@@ -276,6 +272,7 @@ void generate_response(uint8_t param1, uint8_t param2, uint8_t param3, uint8_t p
 }
 
 void RS485Command::execute(std::string operation, int parameter) {
+    printf("发送485指令[%s]\n", name.c_str());
     if (operation == "发送") {
         sendRS485CMD(code);
     }

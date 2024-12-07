@@ -5,6 +5,7 @@
 #include "freertos/task.h"
 
 void Lamp::execute(std::string operation, int parameter) {
+    printf("灯[%s]收到操作[%s]\n", name.c_str(), operation.c_str());
     if (operation == "打开") {
         output->connect();
         current_state = State::ON;
@@ -49,7 +50,6 @@ void Lamp::updateButtonIndicator(bool state) {
                 // 设置按钮的背光状态
                 panel->set_button_bl_state(button->id, state);
                 panel->publish_bl_state();
-                // vTaskDelay(50 / portTICK_PERIOD_MS);
             } else {
                 ESP_LOGW("Indicator", "Button ID %d not found in panel %d", assoc.button_id, assoc.panel_id);
             }

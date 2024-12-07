@@ -6,6 +6,7 @@
 #include "../rs485/rs485.h"
 
 void OtherDevice::execute(std::string operation, int parameter) {
+    printf("[%s]收到操作[%s]\n", name.c_str(), operation.c_str());
     switch (type) {
         case OtherDeviceType::OUTPUT_CONTROL:
             if (operation == "打开") {
@@ -43,6 +44,11 @@ void OtherDevice::execute(std::string operation, int parameter) {
                 sleep_heartbeat();
             }
             break;
+        case OtherDeviceType::DELAYER:
+            if (operation == "延时") {
+                printf("延时%d秒\n", parameter);
+                vTaskDelay(parameter * 1000 / portTICK_PERIOD_MS);
+            }
     }
 }
 

@@ -35,6 +35,11 @@ public:
     std::vector<AtomicAction> atomic_actions;
 
     void executeAllAtomicAction(void);
+
+    void clearTaskHandle();
+
+private:
+    TaskHandle_t task_handle = nullptr;
 };
 
 // 一个输入通道, 它与PanelButton算同级, 或者说同类

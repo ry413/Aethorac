@@ -30,7 +30,8 @@ enum class LampType {
 // ****************** 其他设备 ******************
 enum class OtherDeviceType {
     OUTPUT_CONTROL,
-    HEARTBEAT_STATE
+    HEARTBEAT_STATE,
+    DELAYER
 };
 
 // ****************** 空调 ******************
