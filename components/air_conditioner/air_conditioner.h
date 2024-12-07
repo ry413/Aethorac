@@ -3,7 +3,7 @@
 
 #include <map>
 #include <memory>
-#include "../config_structs/config_structs.h"
+#include "../commons/commons.h"
 #include "../manager_base/manager_base.h"
 #include "../board_config/board_config.h"
 

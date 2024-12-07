@@ -6,7 +6,7 @@
 #include <vector>
 #include <memory>
 #include <variant>
-#include "../config_structs/config_structs.h"
+#include "../commons/commons.h"
 #include "../manager_base/manager_base.h"
 #include "../stm32_comm/stm32_comm.h"
 #include "../panel/panel.h"
@@ -30,32 +30,19 @@ private:
 
 };
 
-class InputActionGroup {
-public:
-    std::vector<AtomicAction> atomic_actions;
+class InputActionGroup : public ActionGroupBase {
 
-    void executeAllAtomicAction(void);
-
-    void clearTaskHandle();
-
-private:
-    TaskHandle_t task_handle = nullptr;
 };
 
 // 一个输入通道, 它与PanelButton算同级, 或者说同类
-class BoardInput {
+class BoardInput : public InputBase {
 public:
     uint8_t host_board_id;
     uint8_t channel;
     InputLevel level;
+    std::vector<InputActionGroup> action_groups;    
 
-    std::vector<InputActionGroup> action_groups;
-
-    // 执行本输入的逻辑
-    void execute();
-
-private:
-    uint8_t current_index = 0;  // 此时按下会执行第几个动作组
+    void execute() override;
 };
 
 // 一整个板子

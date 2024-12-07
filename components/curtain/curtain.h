@@ -5,7 +5,7 @@
 #include <memory>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "../config_structs/config_structs.h"
+#include "../commons/commons.h"
 #include "../board_config/board_config.h"
 
 class Curtain : public IDevice {

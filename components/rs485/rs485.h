@@ -3,7 +3,7 @@
 
 #include <string>
 #include <vector>
-#include "../config_structs/config_structs.h"
+#include "../commons/commons.h"
 #include "../manager_base/manager_base.h"
 
 #define RS485_UART_PORT   1

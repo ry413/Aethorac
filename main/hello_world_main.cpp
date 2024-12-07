@@ -22,7 +22,6 @@ extern "C" {
 #include "air_conditioner.h"
 #include "rs485.h"
 #include "panel.h"
-#include "delay_action.h"
 #include "curtain.h"
 #include "wifi.h"
 #include "../components/other_device/other_device.h"

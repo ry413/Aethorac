@@ -1,7 +1,7 @@
 #ifndef OTHER_DEVICE_H
 #define OTHER_DEVICE_H
 
-#include "../config_structs/config_structs.h"
+#include "../commons/commons.h"
 #include "../board_config/board_config.h"
 #include "../manager_base/manager_base.h"
 

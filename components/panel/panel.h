@@ -4,7 +4,7 @@
 #include <unordered_map>
 #include <memory>
 #include <vector>
-#include "../config_structs/config_structs.h"
+#include "../commons/commons.h"
 #include "../manager_base/manager_base.h"
 #include "../rs485/rs485.h"
 #include "freertos/FreeRTOS.h"
@@ -13,41 +13,21 @@
 
 class Panel;
 
-// 最原子级的一条操作, 某种意义上
-class AtomicAction {
-public:
-    std::weak_ptr<IDevice> target_device;       // 本操作的目标设备
-    std::string operation;                      // 操作名, 直接交由某个设备处理
-    int parameter;                              // 有什么是数字不能表示的呢
-};
-
 // 按钮的动作组类, 一个按钮拥有许多动作组, 每次按下时执行一个动作组, 循环的
-class PanelButtonActionGroup {
+class PanelButtonActionGroup : public ActionGroupBase{
 public:
-    // 一个动作组里有多条原子动作, 在按下按钮时会一并执行
-    std::vector<AtomicAction> atomic_actions;
     ButtonPolitAction pressed_polit_actions;
     ButtonOtherPolitAction pressed_other_polit_actions;
-
-    // 执行atomic_actions里所有动作
-    void executeAllAtomicAction(void);
-
-
-    void clearTaskHandle();
-
-private:
-    TaskHandle_t task_handle = nullptr;
 };
 
 // 一个面板的按钮, 它与BoardInput算同级, 或者说同类
-class PanelButton : std::enable_shared_from_this<PanelButton> {
+class PanelButton : public InputBase {
 public:
     uint8_t id;
     std::weak_ptr<Panel> host_panel;        // 指向本按钮所在的面板
     std::vector<PanelButtonActionGroup> action_groups; // 此按钮所拥有的所有动作组
-
-    // 按下按钮
-    void press();
+        
+    void execute() override;
 
     // 执行指示灯策略
     void execute_polit_actions(uint8_t index);
@@ -62,8 +42,6 @@ public:
 }
 
 private:
-    uint8_t current_index = 0;      // 此时按下会执行第几个动作组
-    
     TimerHandle_t light_off_timer = nullptr; // 定时器句柄
     static void light_off_timer_callback(TimerHandle_t xTimer);
 };

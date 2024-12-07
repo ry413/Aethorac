@@ -21,11 +21,9 @@ void OtherDevice::execute(std::string operation, int parameter) {
                 output->reverse();
 
                 if (current_state == State::ON) {
-                    printf("off\n");
                     current_state = State::OFF;
                     updateButtonIndicator(false);
                 } else {
-                    printf("on\n");
                     current_state = State::ON;
                     updateButtonIndicator(true);
                 }

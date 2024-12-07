@@ -40,14 +40,14 @@ uint8_t calculate_checksum(uart_frame_t *frame) {
 
 // 构造指令帧
 void build_frame(uint8_t cmd_type, uint8_t board_id, uint8_t channel, uint8_t param1, uint8_t param2, uart_frame_t *frame) {
-    frame->header = 0x79;           // 帧头
+    frame->header = STM32_FRAME_HEADER;           // 帧头
     frame->cmd_type = cmd_type;             // 命令类型
     frame->board_id = board_id;             // 板子 ID
     frame->channel = channel;               // 通道号
     frame->param1 = param1;                 // 参数 1
     frame->param2 = param2;                 // 参数 2
     frame->checksum = calculate_checksum(frame); // 计算校验和
-    frame->footer = 0x7C;           // 帧尾
+    frame->footer = STM32_FRAME_FOOTER;           // 帧尾
 }
 
 // 发送指令帧
@@ -88,7 +88,7 @@ void uart_receive_task(void *pvParameters) {
         if (len > 0) {
             switch (state) {
                 case WAIT_FOR_HEADER:
-                    if (byte == FRAME_HEADER) {
+                    if (byte == STM32_FRAME_HEADER) {
                         state = RECEIVE_DATA;
                         byte_index = 0;
                         frame_ptr[byte_index++] = byte;
@@ -99,7 +99,7 @@ void uart_receive_task(void *pvParameters) {
                     frame_ptr[byte_index++] = byte;
                     if (byte_index == frame_size) {
                         // 接收到完整的数据包
-                        if (frame.footer == FRAME_FOOTER && frame.checksum == calculate_checksum(&frame)) {
+                        if (frame.footer == STM32_FRAME_FOOTER && frame.checksum == calculate_checksum(&frame)) {
                             // 处理数据包
                             handle_response(&frame);
                         } else {

@@ -1,9 +1,15 @@
-#ifndef CONFIG_STRUCTS_H
-#define CONFIG_STRUCTS_H
+#ifndef commons_H
+#define commons_H
 
 extern "C" {
 #include "stdio.h"
 }
+
+#include <vector>
+#include "../manager_base/manager_base.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/timers.h"
 
 
 // ****************** 板子 ******************
@@ -78,4 +84,34 @@ enum class ButtonOtherPolitAction {
     IGNORE,             // 忽略
 };
 
-#endif // CONFIG_STRUCTS_H
+
+// 最原子级的一条操作, 某种意义上
+class AtomicAction {
+public:
+    std::weak_ptr<IDevice> target_device;       // 本操作的目标设备
+    std::string operation;                      // 操作名, 直接交由某个设备处理
+    int parameter;                              // 有什么是数字不能表示的呢
+};
+
+// 动作组基类
+class ActionGroupBase {
+public:
+    std::vector<AtomicAction> atomic_actions;
+
+    void executeAllAtomicAction(void);
+
+    void clearTaskHandle();
+
+private:
+    TaskHandle_t task_handle = nullptr;
+};
+
+class InputBase {
+public:
+    virtual void execute() = 0;
+
+protected:
+    uint8_t current_index = 0;  // 此时按下会执行第几个动作组
+};
+
+#endif // commons_H

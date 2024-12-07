@@ -66,32 +66,46 @@ void uart_init_rs485() {
 
     // 接收任务
     xTaskCreate([](void* param) {
-        uint8_t* data = (uint8_t*)malloc(RS485_RX_BUFFER_SIZE); // 动态分配缓冲区
-        if (data == NULL) {
-            ESP_LOGE(TAG, "Failed to allocate buffer for RS485 reception");
-            vTaskDelete(NULL);
-        }
+        uint8_t byte;
+        int frame_size = 8;
+        enum {
+            WAIT_FOR_HEADER,
+            RECEIVE_DATA,
+        } state = WAIT_FOR_HEADER;
 
-        while (true) {
-            int length = uart_read_bytes(RS485_UART_PORT, data, RS485_BUFFER_SIZE, 100 / portTICK_PERIOD_MS);
-            if (length > 0) {
-                ESP_LOGI(TAG, "RS485 接收: %02X %02X %02X %02X %02X %02X %02X %02X", 
-                    data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7]);
+        uint8_t buffer[frame_size];
+        int byte_index = 0;
 
-                handle_rs485_data(data, length);
+        while (1) {
+            // 读取单个字节
+            int len = uart_read_bytes(RS485_UART_PORT, &byte, 1, portMAX_DELAY);
+            if (len > 0) {
+                switch (state) {
+                    case WAIT_FOR_HEADER:
+                        if (byte == RS485_FRAME_HEADER || byte == STM32_FRAME_HEADER) {
+                            state = RECEIVE_DATA;
+                            byte_index = 0;
+                            buffer[byte_index++] = byte;
+                        } else {
+                            ESP_LOGE(TAG, "错误帧头: 0x%02x", byte);
+                        }
+                        break;
+
+                    case RECEIVE_DATA:
+                        buffer[byte_index++] = byte;
+                        if (byte_index == frame_size) {
+                            if ((buffer[0] == RS485_FRAME_HEADER && buffer[frame_size - 1] == RS485_FRAME_FOOTER) ||
+                                (buffer[0] == STM32_FRAME_HEADER && buffer[frame_size - 1] == STM32_FRAME_FOOTER))
+                            // 接收到完整的数据包, 判断在里面做
+                            handle_rs485_data(buffer, frame_size);
+                            state = WAIT_FOR_HEADER; // 无论成功或失败，都重新等待下一帧
+                        }
+                        break;
+                }
+            } else if (len < 0) {
+                ESP_LOGE(TAG, "UART 读取错误: %d", len);
             }
-
-            static int count = 0;
-            // count++;
-            // if (count > 50) {
-            //     UBaseType_t remaining_stack = uxTaskGetStackHighWaterMark(NULL);
-            //     ESP_LOGI("received", "Remaining stack size: %u", remaining_stack);
-            //     count = 0;
-            // }
-
         }
-
-        free(data);
         vTaskDelete(NULL);
     }, "485Receive task", 8192, NULL, 7, NULL);
 }
@@ -106,7 +120,7 @@ void sendRS485CMD(const std::vector<uint8_t>& data) {
         printf("\n");
 
         // 100ms是很好的数值了, 80就不行了
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        vTaskDelay(100 / portTICK_PERIOD_MS);
         xSemaphoreGive(rs485Mutex);
     } else {
         printf("Failed to acquire RS485 mutex\n");
@@ -150,23 +164,6 @@ uint8_t calculate_checksum(const std::vector<uint8_t>& data) {
 
 // 终极处理函数
 void handle_rs485_data(uint8_t* data, int length) {
-    if (length != 8) {
-        ESP_LOGE(TAG, "错误的指令长度: %d", length);
-        return;
-    }
-    
-    // 因为现在stm32那边也走485, 所以先不判断头尾
-
-    // if (data[0] != RS485_FRAME_HEADER) {
-    //     ESP_LOGE(TAG, "错误的帧头: %d", data[0]);
-    //     return;
-    // }
-
-    // if (data[7] != RS485_FRAME_FOOTER) {
-    //     ESP_LOGE(TAG, "错误的帧尾: %d", data[7]);
-    //     return;
-    // }
-
     uint8_t checksum = calculate_checksum(std::vector<uint8_t>(data, data + 6));
     if (data[6] != checksum) {
         ESP_LOGE(TAG, "校验和错误: %d", checksum);
@@ -206,7 +203,7 @@ void handle_rs485_data(uint8_t* data, int length) {
 
             if (is_pressed && !is_operating) {
                 // 按钮按下, 且未被标记为"正在操作"
-                panel->buttons[i]->press();
+                panel->buttons[i]->execute();
                 operation_flags |= mask;                    // 设置"正在操作"标记
             } else if (!is_pressed && is_operating) {
                 // 按钮释放，且之前被标记为"正在操作"
