@@ -55,12 +55,12 @@ void uart_init_rs485() {
             }
             
             static int count = 0;
-            // count++;
-            // if (count > 50) {
-            //     UBaseType_t remaining_stack = uxTaskGetStackHighWaterMark(NULL);
-            //     ESP_LOGI("sent", "Remaining stack size: %u", remaining_stack);
-            //     count = 0;
-            // }
+            count++;
+            if (count > 500) {
+                UBaseType_t remaining_stack = uxTaskGetStackHighWaterMark(NULL);
+                ESP_LOGI("sent", "Remaining stack size: %u", remaining_stack);
+                count = 0;
+            }
         }
     }, "495ALIVE task", 4096, NULL, 3, NULL);
 

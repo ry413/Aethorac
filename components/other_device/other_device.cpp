@@ -60,17 +60,17 @@ void OtherDevice::updateButtonIndicator(bool state) {
             auto it = panel->buttons.find(assoc.button_id);
             if (it != panel->buttons.end()) {
                 auto& button = it->second;
-                ESP_LOGI("Indicator", "Updating indicator for panel %d, button %d to %s",
-                         assoc.panel_id, assoc.button_id, state ? "ON" : "OFF");
+                // ESP_LOGI("Indicator", "Updating indicator for panel %d, button %d to %s",
+                //          assoc.panel_id, assoc.button_id, state ? "ON" : "OFF");
                 // 设置按钮的背光状态
                 panel->set_button_bl_state(button->id, state);
                 panel->publish_bl_state();
                 // vTaskDelay(50 / portTICK_PERIOD_MS);
             } else {
-                ESP_LOGW("Indicator", "Button ID %d not found in panel %d", assoc.button_id, assoc.panel_id);
+                // ESP_LOGW("Indicator", "Button ID %d not found in panel %d", assoc.button_id, assoc.panel_id);
             }
         } else {
-            ESP_LOGW("Indicator", "Panel ID %d not found", assoc.panel_id);
+            // ESP_LOGW("Indicator", "Panel ID %d not found", assoc.panel_id);
         }
     }
 }
