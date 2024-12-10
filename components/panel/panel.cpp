@@ -9,7 +9,7 @@ void PanelButton::execute() {
     wakeup_heartbeat();
 
     if (current_index < action_groups.size()) {
-        action_groups[current_index].executeAllAtomicAction();
+        action_groups[current_index]->executeAllAtomicAction();
 
         // 执行指示灯策略
         execute_polit_actions(current_index);
@@ -26,7 +26,7 @@ void PanelButton::execute_polit_actions(uint8_t index) {
 
     // 处理本按钮的指示灯行为
     if (index < action_groups.size()) {
-        ButtonPolitAction action = action_groups[index].pressed_polit_actions;
+        ButtonPolitAction action = action_groups[index]->pressed_polit_actions;
         switch (action) {
             case ButtonPolitAction::LIGHT_ON:
                 panel->set_button_bl_state(id, true);
@@ -49,7 +49,7 @@ void PanelButton::execute_polit_actions(uint8_t index) {
     }
     // 处理其他按钮的指示灯行为
     if (index < action_groups.size()) {
-        ButtonOtherPolitAction action = action_groups[index].pressed_other_polit_actions;
+        ButtonOtherPolitAction action = action_groups[index]->pressed_other_polit_actions;
         switch (action) {
             case ButtonOtherPolitAction::LIGHT_OFF:
                 panel->turn_off_other_buttons(id);

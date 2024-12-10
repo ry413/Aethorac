@@ -330,9 +330,10 @@ void parseJson(const std::string& json_str) {
                         const rapidjson::Value& action_groups = button_item["actionGroups"];
                         for (rapidjson::SizeType k = 0; k < action_groups.Size(); ++k) {
                             const rapidjson::Value& action_group_item = action_groups[k];
-                            PanelButtonActionGroup action_group;
-                            action_group.pressed_polit_actions = static_cast<ButtonPolitAction>(action_group_item["pressedPolitAction"].GetInt());
-                            action_group.pressed_other_polit_actions = static_cast<ButtonOtherPolitAction>(action_group_item["pressedOtherPolitAction"].GetInt()); 
+                            auto action_group = std::make_shared<PanelButtonActionGroup>();
+                            action_group->uid = action_group_item["uid"].GetInt();
+                            action_group->pressed_polit_actions = static_cast<ButtonPolitAction>(action_group_item["pressedPolitAction"].GetInt());
+                            action_group->pressed_other_polit_actions = static_cast<ButtonOtherPolitAction>(action_group_item["pressedOtherPolitAction"].GetInt()); 
 
                             if (action_group_item.HasMember("atomicActions") && action_group_item["atomicActions"].IsArray()) {
                                 const rapidjson::Value& atomic_actions = action_group_item["atomicActions"];
@@ -343,9 +344,10 @@ void parseJson(const std::string& json_str) {
                                     atomic_action.operation = atomic_action_item["operation"].GetString();
                                     atomic_action.parameter = atomic_action_item["parameter"].GetInt();
 
-                                    action_group.atomic_actions.push_back(atomic_action);
+                                    action_group->atomic_actions.push_back(atomic_action);
                                 }
                             }
+                            ActionGroupManager::getInstance().addItem(action_group->uid, action_group);
                             button->action_groups.push_back(action_group);
                         }
                     }
@@ -380,7 +382,8 @@ void parseJson(const std::string& json_str) {
                         const rapidjson::Value& action_groups = input_item["actionGroups"];
                         for (rapidjson::SizeType k = 0; k < action_groups.Size(); ++k) {
                             const rapidjson::Value& action_group_item = action_groups[k];
-                            InputActionGroup action_group;
+                            auto action_group = std::make_shared<InputActionGroup>();
+                            action_group->uid = action_group_item["uid"].GetInt();
 
                             if (action_group_item.HasMember("atomicActions") && action_group_item["atomicActions"].IsArray()) {
                                 const rapidjson::Value& atomic_actions = action_group_item["atomicActions"];
@@ -390,9 +393,11 @@ void parseJson(const std::string& json_str) {
                                     atomic_action.target_device = DeviceManager::getInstance().getItem(atomic_action_item["deviceUid"].GetUint());
                                     atomic_action.operation = atomic_action_item["operation"].GetString();
                                     atomic_action.parameter = atomic_action_item["parameter"].GetInt();
-                                    action_group.atomic_actions.push_back(atomic_action);
+
+                                    action_group->atomic_actions.push_back(atomic_action);
                                 }
                             }
+                            ActionGroupManager::getInstance().addItem(action_group->uid, action_group);
                             input.action_groups.push_back(action_group);
                         }
                     }
@@ -414,7 +419,7 @@ void parseJson(const std::string& json_str) {
                 associated_button.panel_id)->buttons[associated_button.button_id];
             for (auto& action_group : panel_button->action_groups) {
                 // 遍历这个动作组的所有原子级动作
-                for (auto& atomic_action : action_group.atomic_actions) {
+                for (auto& atomic_action : action_group->atomic_actions) {
                     if (atomic_action.operation == "打开") {
                         curtain->open_buttons.push_back(panel_button);
                     } else if (atomic_action.operation == "关闭") {

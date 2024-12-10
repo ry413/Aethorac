@@ -25,7 +25,7 @@ class PanelButton : public InputBase {
 public:
     uint8_t id;
     std::weak_ptr<Panel> host_panel;        // 指向本按钮所在的面板
-    std::vector<PanelButtonActionGroup> action_groups; // 此按钮所拥有的所有动作组
+    std::vector<std::shared_ptr<PanelButtonActionGroup>> action_groups; // 此按钮所拥有的所有动作组
         
     void execute() override;
 

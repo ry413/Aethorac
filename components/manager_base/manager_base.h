@@ -6,6 +6,7 @@
 #include <vector>
 #include <unordered_map>
 #include <memory>
+#include "../commons/commons.h"
 
 // 基础模板类 SingletonManager，接受派生类作为模板参数
 template <typename Derived>
@@ -68,27 +69,6 @@ class PanelButton;      // 前向声明
 class BoardOutput;
 
 
-class AssociatedButton {
-public:
-    uint8_t panel_id;
-    uint8_t button_id;
-
-    AssociatedButton(uint8_t panel_id, uint8_t button_id)
-        : panel_id(panel_id), button_id(button_id) {}
-};
-
-// 所有设备的基类
-class IDevice {
-public:
-    std::string name;
-    uint16_t uid;
-    std::vector<AssociatedButton> associated_buttons;
-
-    virtual ~IDevice() = default;
-
-    virtual void execute(std::string operation, int parameter) = 0;
-};
-
 // 管理所有设备
 class DeviceManager : public SingletonManager<DeviceManager> {
 public:
@@ -142,6 +122,29 @@ private:
     friend class SingletonManager<DeviceManager>;
     mutable std::mutex map_mutex;
     std::unordered_map<uint16_t, std::shared_ptr<IDevice>> resource_map;
+};
+
+class ActionGroupManager : public SingletonManager<ActionGroupManager> {
+public:
+    void addItem(const uint16_t& id, std::shared_ptr<ActionGroupBase> item) {
+        std::lock_guard<std::mutex> lock(map_mutex);
+        resource_map[id] = item;
+    }
+
+    std::shared_ptr<ActionGroupBase> getItem(const uint16_t& id) const {
+        std::lock_guard<std::mutex> lock(map_mutex);
+        auto it = resource_map.find(id);
+        return (it != resource_map.end()) ? it->second : nullptr;
+    }
+
+protected:
+    ActionGroupManager() = default;
+    ~ActionGroupManager() = default;
+
+private:
+    friend class SingletonManager<ActionGroupManager>;
+    mutable std::mutex map_mutex;
+    std::unordered_map<uint16_t, std::shared_ptr<ActionGroupBase>> resource_map;
 };
 
 #endif // MANAGER_BASE_H

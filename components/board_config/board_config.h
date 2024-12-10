@@ -40,7 +40,7 @@ public:
     uint8_t host_board_id;
     uint8_t channel;
     InputLevel level;
-    std::vector<InputActionGroup> action_groups;    
+    std::vector<std::shared_ptr<InputActionGroup>> action_groups;    
 
     void execute() override;
 };

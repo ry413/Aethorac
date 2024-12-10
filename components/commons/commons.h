@@ -6,10 +6,10 @@ extern "C" {
 }
 
 #include <vector>
-#include "../manager_base/manager_base.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/timers.h"
+#include <memory>
 
 
 // ****************** 板子 ******************
@@ -37,7 +37,8 @@ enum class LampType {
 enum class OtherDeviceType {
     OUTPUT_CONTROL,
     HEARTBEAT_STATE,
-    DELAYER
+    DELAYER,
+    ACTION_GROUP_MANAGER
 };
 
 // ****************** 空调 ******************
@@ -85,6 +86,28 @@ enum class ButtonOtherPolitAction {
 };
 
 
+class AssociatedButton {
+public:
+    uint8_t panel_id;
+    uint8_t button_id;
+
+    AssociatedButton(uint8_t panel_id, uint8_t button_id)
+        : panel_id(panel_id), button_id(button_id) {}
+};
+
+// 所有设备的基类
+class IDevice {
+public:
+    std::string name;
+    uint16_t uid;
+    std::vector<AssociatedButton> associated_buttons;
+
+    virtual ~IDevice() = default;
+
+    virtual void execute(std::string operation, int parameter) = 0;
+};
+
+
 // 最原子级的一条操作, 某种意义上
 class AtomicAction {
 public:
@@ -96,11 +119,14 @@ public:
 // 动作组基类
 class ActionGroupBase {
 public:
+    uint16_t uid;
     std::vector<AtomicAction> atomic_actions;
 
     void executeAllAtomicAction(void);
 
     void clearTaskHandle();
+
+    void suicide();
 
 private:
     TaskHandle_t task_handle = nullptr;

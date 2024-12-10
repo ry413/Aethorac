@@ -78,7 +78,7 @@ void BoardInput::execute() {
     wakeup_heartbeat();
 
     if (current_index < action_groups.size()) {
-        action_groups[current_index].executeAllAtomicAction();
+        action_groups[current_index]->executeAllAtomicAction();
 
         current_index = (current_index + 1) % action_groups.size();
     }

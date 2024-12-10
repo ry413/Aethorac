@@ -47,6 +47,13 @@ void OtherDevice::execute(std::string operation, int parameter) {
                 printf("延时%d秒\n", parameter);
                 vTaskDelay(parameter * 1000 / portTICK_PERIOD_MS);
             }
+            break;
+        case OtherDeviceType::ACTION_GROUP_MANAGER:
+            if (operation == "销毁") {
+                auto actionGroup = ActionGroupManager::getInstance().getItem(parameter);
+                actionGroup->suicide();
+            }
+            break;
     }
 }
 

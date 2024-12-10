@@ -47,3 +47,11 @@ void ActionGroupBase::executeAllAtomicAction(void) {
 void ActionGroupBase::clearTaskHandle() {
     task_handle = nullptr;
 }
+
+void ActionGroupBase::suicide() {
+    printf("uid为%d的动作组已自杀\n", uid);
+    if (task_handle != nullptr) {
+        vTaskDelete(task_handle);
+        task_handle = nullptr;
+    }
+}
