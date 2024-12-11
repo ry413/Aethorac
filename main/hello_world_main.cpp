@@ -487,9 +487,14 @@ void tcp_server_task(void *pvParameters) {
                 ESP_LOGI(TAG, "Connection closed by client");
                 break;
             } else {
-                // 处理接收到的数据
-                recv_buf[len] = '\0';  // Null-terminate buffer
+                recv_buf[len] = '\0';
                 received_data += recv_buf;
+
+                // 当检测到换行（或协议规定的结束标记）就不再继续读取
+                if (received_data.find('\n') != std::string::npos || 
+                    received_data.find('\r') != std::string::npos) {
+                    break;
+                }
             }
         }
 
@@ -502,12 +507,18 @@ void tcp_server_task(void *pvParameters) {
                 std::string error_msg = "ERROR: File not found\n";
                 send(sock, error_msg.c_str(), error_msg.size(), 0);
             } else {
-                char file_buf[512];
+                char file_buf[1024];
                 int read_bytes;
                 while ((read_bytes = read(file_fd, file_buf, sizeof(file_buf))) > 0) {
+                    printf("send bytes\n");
                     send(sock, file_buf, read_bytes, 0);
                 }
                 close(file_fd);
+                // 在数据末尾发送结束标志
+                const char* end_marker = "\nEND_OF_JSON\n";
+                send(sock, end_marker, strlen(end_marker), 0);
+                printf("Send end_marker\n");
+                
                 ESP_LOGI(TAG, "File sent successfully");
             }
         } else {

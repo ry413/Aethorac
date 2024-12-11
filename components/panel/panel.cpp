@@ -40,7 +40,7 @@ void PanelButton::execute_polit_actions(uint8_t index) {
                 panel->set_button_bl_state(id, true);
                 panel->publish_bl_state();
                 // 1秒后熄灭
-                schedule_light_off(1000);
+                schedule_light_off(3000);
                 break;
             case ButtonPolitAction::IGNORE:
                 // 不做任何操作
