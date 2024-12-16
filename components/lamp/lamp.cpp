@@ -4,35 +4,38 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-void Lamp::execute(std::string operation, int parameter) {
+void Lamp::execute(std::string operation, std::string parameter) {
     printf("灯[%s]收到操作[%s]\n", name.c_str(), operation.c_str());
     if (operation == "打开") {
+        add_log_entry("light", uid, operation, parameter);
         output->connect();
         current_state = State::ON;
         updateButtonIndicator(true);
     } else if (operation == "关闭") {
+        add_log_entry("light", uid, operation, parameter);
         output->disconnect();
         current_state = State::OFF;
         updateButtonIndicator(false);
     } else if (operation == "反转") {
-        output->reverse();
-        
         if (current_state == State::ON) {
+            add_log_entry("light", uid, "关闭", parameter);
             current_state = State::OFF;
             updateButtonIndicator(false);
         } else {
+            add_log_entry("light", uid, "打开", parameter);
             current_state = State::ON;
             updateButtonIndicator(true);
         }
+        output->reverse();
     }
-    else if (operation == "调光") {
-        ESP_LOGI(__func__, "调光至 %d0%%", parameter);
-        if (parameter != 0) {
-            updateButtonIndicator(true);
-        } else {
-            updateButtonIndicator(false);
-        }
-    }
+    // else if (operation == "调光") {
+    //     ESP_LOGI(__func__, "调光至 %d0%%", parameter);
+    //     if (parameter != 0) {
+    //         updateButtonIndicator(true);
+    //     } else {
+    //         updateButtonIndicator(false);
+    //     }
+    // }
 }
 
 void Lamp::updateButtonIndicator(bool state) {

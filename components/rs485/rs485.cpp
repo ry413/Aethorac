@@ -146,12 +146,17 @@ std::vector<uint8_t> pavectorseHexToFixedArray(const std::string& hexString) {
 }
 
 void wakeup_heartbeat() {
+    ESP_LOGI(TAG, "从睡眠中醒来");
     heartbeat_code = pavectorseHexToFixedArray("7FC0FFFF0080BD7E");
 }
 
 void sleep_heartbeat() {
     ESP_LOGI(TAG, "进入睡眠");
     heartbeat_code = pavectorseHexToFixedArray("7FC0FFFF00003D7E");
+}
+
+bool is_sleep() {
+    return heartbeat_code == pavectorseHexToFixedArray("7FC0FFFF00003D7E");
 }
 
 uint8_t calculate_checksum(const std::vector<uint8_t>& data) {
@@ -268,7 +273,7 @@ void generate_response(uint8_t param1, uint8_t param2, uint8_t param3, uint8_t p
     sendRS485CMD(command);
 }
 
-void RS485Command::execute(std::string operation, int parameter) {
+void RS485Command::execute(std::string operation, std::string parameter) {
     printf("发送485指令[%s]\n", name.c_str());
     if (operation == "发送") {
         sendRS485CMD(code);

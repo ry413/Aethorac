@@ -13,11 +13,12 @@ class OtherDevice : public IDevice {
 public:
     OtherDeviceType type;
     std::shared_ptr<BoardOutput> output;
-    void execute(std::string operation, int parameter) override;
+    void execute(std::string operation, std::string parameter) override;
+    bool isOn() const { return current_state == State::ON; }
 
+    void updateButtonIndicator(bool state);
 private:
     enum class State { OFF, ON };
     State current_state = State::OFF;
-    void updateButtonIndicator(bool state);
 };
 #endif // OTHER_DEVICE_H

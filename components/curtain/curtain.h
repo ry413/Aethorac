@@ -14,7 +14,8 @@ public:
     std::shared_ptr<BoardOutput> output_close;
     uint16_t run_duration;
 
-    void execute(std::string operation, int parameter) override;
+    void execute(std::string operation, std::string parameter) override;
+    bool getState(void);
 
     ~Curtain() {
         if (actionTaskHandle != nullptr) {
@@ -35,9 +36,7 @@ private:
     enum class LastAction { NONE, OPENING, CLOSING };   // 用于, 用一个按键控制窗帘的时候, 即"反转"操作
     LastAction last_action = LastAction::NONE;
 
-
     std::vector<std::weak_ptr<PanelButton>> action_buttons;               // 当前动作的按钮（开、关或反转）
-
 
     TaskHandle_t actionTaskHandle = nullptr;  // 任务句柄
 

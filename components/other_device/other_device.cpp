@@ -5,15 +5,17 @@
 #include "other_device.h"
 #include "../rs485/rs485.h"
 
-void OtherDevice::execute(std::string operation, int parameter) {
+void OtherDevice::execute(std::string operation, std::string parameter) {
     printf("[%s]收到操作[%s]\n", name.c_str(), operation.c_str());
     switch (type) {
         case OtherDeviceType::OUTPUT_CONTROL:
             if (operation == "打开") {
+                add_log_entry("other", uid, "打开", "");
                 output->connect();
                 current_state = State::ON;
                 updateButtonIndicator(true);
             } else if (operation == "关闭") {
+                add_log_entry("other", uid, "关闭", "");
                 output->disconnect();
                 current_state = State::OFF;
                 updateButtonIndicator(false);
@@ -21,9 +23,11 @@ void OtherDevice::execute(std::string operation, int parameter) {
                 output->reverse();
 
                 if (current_state == State::ON) {
+                    add_log_entry("other", uid, "关闭", "");
                     current_state = State::OFF;
                     updateButtonIndicator(false);
                 } else {
+                    add_log_entry("other", uid, "打开", "");
                     current_state = State::ON;
                     updateButtonIndicator(true);
                 }
@@ -44,14 +48,23 @@ void OtherDevice::execute(std::string operation, int parameter) {
             break;
         case OtherDeviceType::DELAYER:
             if (operation == "延时") {
-                printf("延时%d秒\n", parameter);
-                vTaskDelay(parameter * 1000 / portTICK_PERIOD_MS);
+                printf("延时%d秒\n", std::stoi(parameter));
+                vTaskDelay(std::stoi(parameter) * 1000 / portTICK_PERIOD_MS);
             }
             break;
         case OtherDeviceType::ACTION_GROUP_MANAGER:
             if (operation == "销毁") {
-                auto actionGroup = ActionGroupManager::getInstance().getItem(parameter);
+                auto actionGroup = ActionGroupManager::getInstance().getItem(std::stoi(parameter));
                 actionGroup->suicide();
+            }
+            break;
+        case OtherDeviceType::STATE_SETTER:
+            if (operation == "设置状态为") {
+                add_state(parameter);
+            } else if (operation == "清除状态") {
+                remove_state(parameter);
+            } else if (operation == "反转状态") {
+                toggle_state(parameter);
             }
             break;
     }

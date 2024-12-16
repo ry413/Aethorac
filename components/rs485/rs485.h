@@ -36,13 +36,14 @@ extern std::vector<uint8_t> heartbeat_code;
 void wakeup_heartbeat();
 // 睡觉
 void sleep_heartbeat();
+bool is_sleep();
 
 
 // 485设备, 实际上这个算是一个设备
 class RS485Command : public IDevice {
 public:
     std::vector<uint8_t> code;
-    void execute(std::string operation, int parameter) override;
+    void execute(std::string operation, std::string parameter) override;
 };
 
 

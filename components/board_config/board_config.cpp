@@ -2,10 +2,11 @@
 #include "board_config.h"
 #include "../stm32_comm/stm32_comm.h"
 #include "esp_log.h"
-extern "C" {
-    #include "string.h"
-}
+
 #include "../rs485/rs485.h"
+#include "../my_mqtt/my_mqtt.h"
+#include "../lamp/lamp.h"
+#include "../other_device/other_device.h"
 
 #define TAG "BOARD_CONFIG"
 
@@ -75,10 +76,29 @@ void BoardOutput::reverse() {
 }
 
 void BoardInput::execute() {
-    wakeup_heartbeat();
+    // 这里的注释参考PanelButton::execute
+    if (is_sleep()) {
+        wakeup_heartbeat();
+
+        auto lamps = DeviceManager::getInstance().getDevicesOfType<Lamp>();
+        for (auto& lamp : lamps) {
+            if (lamp->isOn()) {
+                lamp->updateButtonIndicator(true);
+            }
+        }
+
+        auto others = DeviceManager::getInstance().getDevicesOfType<OtherDevice>();
+        for (auto& other : others) {
+            if (other->type == OtherDeviceType::OUTPUT_CONTROL) {
+                if (other->isOn()) {
+                    other->updateButtonIndicator(true);
+                }
+            }
+        }
+    }
 
     if (current_index < action_groups.size()) {
-        action_groups[current_index]->executeAllAtomicAction();
+        action_groups[current_index]->executeAllAtomicAction(mode_name);
 
         current_index = (current_index + 1) % action_groups.size();
     }

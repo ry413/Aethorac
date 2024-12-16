@@ -80,7 +80,14 @@
     "thread": "cpp",
     "cinttypes": "cpp",
     "typeinfo": "cpp",
-    "variant": "cpp"
+    "variant": "cpp",
+    "codecvt": "cpp",
+    "optional": "cpp",
+    "iomanip": "cpp",
+    "ranges": "cpp",
+    "span": "cpp",
+    "valarray": "cpp",
+    "unordered_set": "cpp"
   },
   "C_Cpp.errorSquiggles": "enabled",
   "idf.openOcdConfigs": [

@@ -1,13 +1,57 @@
 #include "curtain.h"
 
-void Curtain::execute(std::string operation, int parameter) {
+void Curtain::execute(std::string operation, std::string parameter) {
     printf("窗帘[%s]收到操作[%s]\n", name.c_str(), operation.c_str());
     if (operation == "打开") {
+        add_log_entry("curtain", uid, operation, parameter);
         handleOpenAction();
     } else if (operation == "关闭") {
+        add_log_entry("curtain", uid, operation, parameter);
         handleCloseAction();
     } else if (operation == "反转") {
+        // 反转先不管
         handleReverseAction();
+    }
+    // 后台管理对窗帘的操作特殊处理
+    else if (operation == "开") {
+        switch (state) {
+            case State::CLOSED:
+            case State::CLOSING:
+            case State::STOPPED:
+                handleOpenAction();
+                break;
+            default:
+                break;
+        }
+    } else if (operation == "关") {
+        switch (state) {
+            case State::OPEN:
+            case State::OPENING:
+            case State::STOPPED:
+                handleCloseAction();
+                break;
+            default:
+                break;
+        }
+    } else if (operation == "停止") {
+        switch (state) {
+            case State::CLOSING:
+            case State::OPENING:
+                stopCurrentAction();
+                break;
+            default:
+                break;
+        }
+    }
+}
+
+bool Curtain::getState(void) {
+    switch (state) {
+        case State::CLOSED:
+        case State::CLOSING:
+            return false;
+        default:
+            return true;
     }
 }
 

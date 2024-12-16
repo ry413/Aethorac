@@ -1,16 +1,42 @@
 #include "panel.h"
 #include "esp_log.h"
 #include "../rs485/rs485.h"
+#include "../my_mqtt/my_mqtt.h"
+#include "../lamp/lamp.h"
+#include "../other_device/other_device.h"
 
 #define TAG "PANEL"
 
 void PanelButton::execute() {
-    // 只要按下按钮, 就唤醒, 所以如果有睡眠指令的话, 会在这之后
-    wakeup_heartbeat();
+    // 只要按下按钮, 就试图唤醒
+    // 也就是说如果这个按钮的动作组里又有进入睡眠, 则会醒一下再睡去
+    if (is_sleep()) {
+        wakeup_heartbeat();
+        // 睡眠会将所有指示灯熄灭, 但有些设备实际上并没有被"关"
+        // 所以在醒来后, 要再点亮那些设备的指示灯
+
+        auto lamps = DeviceManager::getInstance().getDevicesOfType<Lamp>();
+        for (auto& lamp : lamps) {
+            if (lamp->isOn()) {
+                lamp->updateButtonIndicator(true);
+            }
+        }
+
+        // 我觉得不会有窗帘, 实际上哪怕灯应该也不会有. 最好没有
+
+        // 目前我只看见"勿扰"与"清理"这两个按键有这b事
+        auto others = DeviceManager::getInstance().getDevicesOfType<OtherDevice>();
+        for (auto& other : others) {
+            if (other->type == OtherDeviceType::OUTPUT_CONTROL) {
+                if (other->isOn()) {
+                    other->updateButtonIndicator(true);
+                }
+            }
+        }
+    }
 
     if (current_index < action_groups.size()) {
-        action_groups[current_index]->executeAllAtomicAction();
-
+        action_groups[current_index]->executeAllAtomicAction(mode_name);
         // 执行指示灯策略
         execute_polit_actions(current_index);
 

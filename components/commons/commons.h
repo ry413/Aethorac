@@ -9,7 +9,15 @@ extern "C" {
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/timers.h"
+#include "../rapidjson/document.h"
+#include "../rapidjson/error/en.h"
+#include "../rapidjson/stringbuffer.h"
+#include "../rapidjson/writer.h"
 #include <memory>
+#include "../json.hpp"
+#include <ctime>
+#include <esp_sntp.h>
+#include <esp_log.h>
 
 
 // ****************** 板子 ******************
@@ -17,6 +25,7 @@ extern "C" {
 enum class OutputType {
     RELAY,
     DRY_CONTACT,
+    LIGHT_MODULATOR
 };
 
 // 输入电平
@@ -38,7 +47,8 @@ enum class OtherDeviceType {
     OUTPUT_CONTROL,
     HEARTBEAT_STATE,
     DELAYER,
-    ACTION_GROUP_MANAGER
+    ACTION_GROUP_MANAGER,
+    STATE_SETTER
 };
 
 // ****************** 空调 ******************
@@ -104,7 +114,7 @@ public:
 
     virtual ~IDevice() = default;
 
-    virtual void execute(std::string operation, int parameter) = 0;
+    virtual void execute(std::string operation, std::string parameter) = 0;
 };
 
 
@@ -113,7 +123,7 @@ class AtomicAction {
 public:
     std::weak_ptr<IDevice> target_device;       // 本操作的目标设备
     std::string operation;                      // 操作名, 直接交由某个设备处理
-    int parameter;                              // 有什么是数字不能表示的呢
+    std::string parameter;                      // 有什么是字符串不能表示的呢
 };
 
 // 动作组基类
@@ -122,12 +132,13 @@ public:
     uint16_t uid;
     std::vector<AtomicAction> atomic_actions;
 
-    void executeAllAtomicAction(void);
+    void executeAllAtomicAction(std::string mode_name);
 
     void clearTaskHandle();
 
     void suicide();
 
+    bool require_report = false;        // 表示执行完本动作组后, 是否需要上报状态, 用于情景模式
 private:
     TaskHandle_t task_handle = nullptr;
 };
@@ -135,9 +146,30 @@ private:
 class InputBase {
 public:
     virtual void execute() = 0;
+    std::string mode_name = "";  // 如果有这个的话, 说明此输入是情景模式, 就可以上报给后台
 
 protected:
     uint8_t current_index = 0;  // 此时按下会执行第几个动作组
 };
+
+
+// *************** 时间 ***************
+void init_sntp();
+time_t get_current_timestamp();
+
+// *************** 上报操作日志 ***************
+static std::vector<nlohmann::json> log_array;
+static std::mutex log_mutex;
+void add_log_entry(const std::string& devicetype, uint16_t deviceid,
+                   const std::string& operation, std::string param);
+std::vector<nlohmann::json> fetch_and_clear_logs();
+
+// *************** 当前房间的图示状态 ***************
+static std::vector<std::string> state_array;
+static std::mutex state_mutex;
+void add_state(const std::string& state);
+bool remove_state(const std::string& state);
+void toggle_state(const std::string &state);
+std::vector<std::string> get_states();
 
 #endif // commons_H

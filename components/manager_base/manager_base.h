@@ -65,11 +65,13 @@ private:
 
 };
 
+
+
+
 class PanelButton;      // 前向声明
 class BoardOutput;
 
-
-// 管理所有设备
+// 设备管理者
 class DeviceManager : public SingletonManager<DeviceManager> {
 public:
     void addItem(const uint16_t& id, std::shared_ptr<IDevice> item) {
@@ -124,6 +126,7 @@ private:
     std::unordered_map<uint16_t, std::shared_ptr<IDevice>> resource_map;
 };
 
+// 动作组管理者
 class ActionGroupManager : public SingletonManager<ActionGroupManager> {
 public:
     void addItem(const uint16_t& id, std::shared_ptr<ActionGroupBase> item) {
@@ -145,6 +148,48 @@ private:
     friend class SingletonManager<ActionGroupManager>;
     mutable std::mutex map_mutex;
     std::unordered_map<uint16_t, std::shared_ptr<ActionGroupBase>> resource_map;
+};
+
+// 超级管理员
+class LordManager {
+public:
+    static LordManager& getInstance() {
+        static LordManager instance;
+        return instance;
+    }
+
+    LordManager(const LordManager&) = delete;
+    LordManager& operator=(const LordManager&) = delete;
+
+    // 设置配置数据
+    void setConfig(const std::string& version, const std::string& hotel, const std::string& room) {
+        config_version = version;
+        hotel_name = hotel;
+        room_name = room;
+    }
+
+    // 获取配置数据
+    const std::string& getConfigVersion() const { return config_version; }
+    const std::string& getHotelName() const { return hotel_name; }
+    const std::string& getRoomName() const { return room_name; }
+
+    bool isRegistered() const { return is_register; }
+    void setRegistered(bool is_reg) { is_register = is_reg; }
+
+    void setCurrMode(const std::string& mode) { curr_mode = mode; }
+    std::string getCurrMode(void) { return curr_mode; }
+
+private:
+    LordManager() = default;
+
+    // 配置数据
+    std::string config_version;
+    std::string hotel_name;
+    std::string room_name;
+
+    std::string curr_mode;
+
+    bool is_register;
 };
 
 #endif // MANAGER_BASE_H
